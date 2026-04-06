@@ -1,0 +1,18 @@
+runtime: python311
+env: standard
+entrypoint: gunicorn -w 4 -b :$PORT api.main_unified:app
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+
+env_variables:
+  JWT_SECRET: "SET_VIA_CLOUD_RUN_SECRETS"
+  TAVILY_API_KEY: "SET_VIA_CLOUD_RUN_SECRETS"
+  GOOGLE_CLIENT_ID: "SET_VIA_CLOUD_RUN_SECRETS"
+  GOOGLE_CLIENT_SECRET: "SET_VIA_CLOUD_RUN_SECRETS"
+  GEMINI_MODEL: "gemini-2.5-flash"
+  GEMINI_EMBED_MODEL: "text-embedding-004"
+  GCP_LOCATION: "us-central1"
+  CHROMA_COLLECTION: "coastal_chunks_v3"
+  GCP_SA_KEY_PATH: "./service-account-key.json"
