@@ -1,0 +1,31 @@
+fastapi>=0.111
+uvicorn[standard]>=0.29
+python-multipart
+pydantic>=2
+requests>=2.31
+
+langgraph>=0.2
+langchain>=0.2
+langchain-google-vertexai>=1.0
+langchain-core>=0.2
+
+google-auth
+google-cloud-aiplatform>=1.38
+vertexai
+google-auth-oauthlib>=1.2
+google-auth-httplib2>=0.2
+
+# Mathematical computation (ADVANCED)
+numpy>=1.26
+scipy>=1.13
+sympy>=1.12
+matplotlib>=3.8
+mpmath>=1.3
+scikit-learn>=1.4  # Numerical optimization utilities
+
+# Data persistence & authentication
+sqlalchemy>=2.0
+pyjwt>=2.8
+passlib[bcrypt]>=1.7.4
+email-validator>=2.0
+python-multipart>=0.0.6

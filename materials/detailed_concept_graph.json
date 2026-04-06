@@ -1,0 +1,655 @@
+{
+  "concepts": [
+    {
+      "id": "linear_wave_theory",
+      "name": "Linear Wave Theory (Airy Theory)",
+      "keywords": ["Airy waves", "small amplitude", "linear waves", "sinusoidal waves", "wave assumptions"],
+      "prerequisites": [],
+      "related": ["wave_dispersion", "wave_particle_motion", "wave_pressure", "finite_amplitude_waves"],
+      "equations": [
+        "omega^2 = gk*tanh(kh)",
+        "eta = A*cos(kx - omega*t)",
+        "c = L/T",
+        "c = omega/k"
+      ],
+      "topics": [1],
+      "subtopics": ["assumptions", "velocity potential", "boundary conditions"]
+    },
+    {
+      "id": "wave_dispersion",
+      "name": "Wave Dispersion Relation",
+      "keywords": ["dispersion", "frequency", "wavenumber", "wavelength", "period", "celerity"],
+      "prerequisites": ["linear_wave_theory"],
+      "related": ["deep_water_waves", "shallow_water_waves", "intermediate_depth"],
+      "equations": [
+        "omega^2 = gk*tanh(kh)",
+        "L = (g*T^2)/(2*pi)*tanh(kh)",
+        "k = 2*pi/L",
+        "omega = 2*pi/T"
+      ],
+      "topics": [1],
+      "subtopics": ["dispersion relation derivation", "phase speed", "group velocity"]
+    },
+    {
+      "id": "deep_water_waves",
+      "name": "Deep Water Waves",
+      "keywords": ["deep water", "h/L > 0.5", "deep water approximation", "infinite depth"],
+      "prerequisites": ["wave_dispersion"],
+      "related": ["shallow_water_waves", "intermediate_depth", "wave_classification"],
+      "equations": [
+        "c0 = sqrt(gL/(2*pi)) = gT/(2*pi)",
+        "L0 = gT^2/(2*pi)",
+        "tanh(kh) ≈ 1"
+      ],
+      "topics": [1],
+      "subtopics": ["deep water limit", "orbital motion circles"]
+    },
+    {
+      "id": "shallow_water_waves",
+      "name": "Shallow Water Waves",
+      "keywords": ["shallow water", "h/L < 0.05", "long waves", "shallow water approximation"],
+      "prerequisites": ["wave_dispersion"],
+      "related": ["deep_water_waves", "intermediate_depth", "long_waves", "wave_breaking"],
+      "equations": [
+        "c = sqrt(gh)",
+        "tanh(kh) ≈ kh",
+        "u = (H/2)*(g/h)^0.5*cos(kx - omega*t)"
+      ],
+      "topics": [1, 3],
+      "subtopics": ["shallow water limit", "horizontal orbital motion", "non-dispersive"]
+    },
+    {
+      "id": "intermediate_depth",
+      "name": "Intermediate Depth Waves",
+      "keywords": ["transitional depth", "0.05 < h/L < 0.5", "intermediate water"],
+      "prerequisites": ["wave_dispersion"],
+      "related": ["deep_water_waves", "shallow_water_waves"],
+      "equations": ["full dispersion relation required"],
+      "topics": [1],
+      "subtopics": ["iterative solution", "neither deep nor shallow"]
+    },
+    {
+      "id": "wave_particle_motion",
+      "name": "Wave Particle Motion",
+      "keywords": ["orbital motion", "particle velocity", "particle acceleration", "trajectories", "subsurface motion"],
+      "prerequisites": ["linear_wave_theory"],
+      "related": ["wave_pressure", "wave_energy"],
+      "equations": [
+        "u = (pi*H/T)*(cosh(k(z+h))/sinh(kh))*cos(kx - omega*t)",
+        "w = (pi*H/T)*(sinh(k(z+h))/sinh(kh))*sin(kx - omega*t)"
+      ],
+      "topics": [1],
+      "subtopics": ["horizontal velocity", "vertical velocity", "orbital diameter", "Stokes drift"]
+    },
+    {
+      "id": "wave_pressure",
+      "name": "Wave Pressure Field",
+      "keywords": ["dynamic pressure", "hydrostatic pressure", "subsurface pressure", "pressure attenuation"],
+      "prerequisites": ["linear_wave_theory", "wave_particle_motion"],
+      "related": ["wave_forces", "wave_particle_motion"],
+      "equations": [
+        "p = -rho*g*z + rho*g*(H/2)*(cosh(k(z+h))/cosh(kh))*cos(kx - omega*t)",
+        "p_dynamic = rho*g*eta*(cosh(k(z+h))/cosh(kh))"
+      ],
+      "topics": [1],
+      "subtopics": ["pressure response factor", "bottom pressure", "pressure sensors"]
+    },
+    {
+      "id": "wave_energy",
+      "name": "Wave Energy",
+      "keywords": ["wave energy", "kinetic energy", "potential energy", "energy density", "energy flux"],
+      "prerequisites": ["linear_wave_theory"],
+      "related": ["group_velocity", "wave_power", "radiation_stress"],
+      "equations": [
+        "E = (1/8)*rho*g*H^2",
+        "E = Ek + Ep",
+        "P = E*cg"
+      ],
+      "topics": [1],
+      "subtopics": ["energy per unit area", "energy conservation", "equipartition"]
+    },
+    {
+      "id": "group_velocity",
+      "name": "Group Velocity",
+      "keywords": ["group velocity", "cg", "wave groups", "energy propagation", "wave envelope"],
+      "prerequisites": ["wave_dispersion", "wave_energy"],
+      "related": ["phase_velocity", "wave_energy", "wave_shoaling"],
+      "equations": [
+        "cg = c*(1/2)*(1 + 2kh/sinh(2kh))",
+        "cg = n*c",
+        "n = 1/2*(1 + 2kh/sinh(2kh))"
+      ],
+      "topics": [1],
+      "subtopics": ["deep water cg = c/2", "shallow water cg = c", "group speed factor n"]
+    },
+    {
+      "id": "finite_amplitude_waves",
+      "name": "Finite Amplitude Waves",
+      "keywords": ["Stokes wave", "Stokes waves", "nonlinear waves", "higher order theory", "wave steepness", "amplitude dispersion"],
+      "prerequisites": ["linear_wave_theory"],
+      "related": ["wave_breaking", "cnoidal_waves", "solitary_waves"],
+      "equations": [
+        "Stokes second order",
+        "Stokes third order",
+        "H/L steepness parameter"
+      ],
+      "topics": [2],
+      "subtopics": ["Stokes expansion", "mass transport", "set-down", "asymmetric profiles"]
+    },
+    {
+      "id": "stokes_waves",
+      "name": "Stokes Wave Theory",
+      "keywords": ["Stokes wave", "Stokes theory", "Stokes second order", "Stokes third order", "perturbation method", "nonlinear corrections"],
+      "prerequisites": ["finite_amplitude_waves"],
+      "related": ["linear_wave_theory", "wave_breaking"],
+      "equations": [
+        "eta = sum of harmonic terms",
+        "mass transport velocity"
+      ],
+      "topics": [2],
+      "subtopics": ["peaked crests", "flat troughs", "forward mass transport"]
+    },
+    {
+      "id": "cnoidal_waves",
+      "name": "Cnoidal Wave Theory",
+      "keywords": ["cnoidal", "elliptic integrals", "shallow water nonlinear", "Jacobian elliptic function"],
+      "prerequisites": ["finite_amplitude_waves", "shallow_water_waves"],
+      "related": ["solitary_waves", "long_waves"],
+      "equations": ["cn function", "elliptic parameter m"],
+      "topics": [2, 3],
+      "subtopics": ["shallow water nonlinearity", "periodic shallow water waves"]
+    },
+    {
+      "id": "solitary_waves",
+      "name": "Solitary Waves",
+      "keywords": ["solitary wave", "soliton", "single wave", "Russell's wave", "KdV equation"],
+      "prerequisites": ["cnoidal_waves"],
+      "related": ["tsunami", "long_waves", "bore"],
+      "equations": [
+        "eta = H*sech^2(...)",
+        "c = sqrt(g(h+H))"
+      ],
+      "topics": [3],
+      "subtopics": ["non-dispersive", "permanent form", "limiting case of cnoidal"]
+    },
+    {
+      "id": "long_waves",
+      "name": "Long Wave Theory",
+      "keywords": ["long waves", "shallow water equations", "tsunami", "storm surge", "wave setup"],
+      "prerequisites": ["shallow_water_waves"],
+      "related": ["solitary_waves", "bore", "tides", "tsunami"],
+      "equations": [
+        "c = sqrt(gh)",
+        "continuity equation",
+        "momentum equation"
+      ],
+      "topics": [3],
+      "subtopics": ["hydrostatic pressure", "vertical acceleration negligible"]
+    },
+    {
+      "id": "tsunami",
+      "name": "Tsunami Waves",
+      "keywords": ["tsunami", "seismic waves", "earthquake-generated", "transoceanic propagation"],
+      "prerequisites": ["long_waves", "shallow_water_waves"],
+      "related": ["solitary_waves", "wave_shoaling", "wave_runup"],
+      "equations": ["shallow water wave equations", "c = sqrt(gh)"],
+      "topics": [3],
+      "subtopics": ["generation", "propagation", "shoaling", "inundation", "runup"]
+    },
+    {
+      "id": "bore",
+      "name": "Bores and Hydraulic Jumps",
+      "keywords": ["bore", "tidal bore", "hydraulic jump", "shock wave", "discontinuity"],
+      "prerequisites": ["long_waves"],
+      "related": ["wave_breaking", "solitary_waves"],
+      "equations": ["momentum jump condition", "energy dissipation"],
+      "topics": [3],
+      "subtopics": ["moving hydraulic jump", "wave breaking in rivers"]
+    },
+    {
+      "id": "wave_shoaling",
+      "name": "Wave Shoaling",
+      "keywords": ["shoaling", "shoaling coefficient", "Ks", "wave transformation", "depth-induced changes", "wave height increase"],
+      "prerequisites": ["group_velocity", "wave_energy"],
+      "related": ["wave_refraction", "wave_breaking", "green_law"],
+      "equations": [
+        "Ks = sqrt(c0*cg0)/(c*cg)",
+        "H = H0*Ks",
+        "Green's law: H ~ h^(-1/4)"
+      ],
+      "topics": [1, 4],
+      "subtopics": ["energy flux conservation", "wave height amplification", "shoaling coefficient"]
+    },
+    {
+      "id": "wave_refraction",
+      "name": "Wave Refraction",
+      "keywords": ["refraction", "wave bending", "Snell's law", "orthogonals", "ray tracing", "bathymetry effects"],
+      "prerequisites": ["wave_dispersion"],
+      "related": ["wave_shoaling", "wave_diffraction", "caustics"],
+      "equations": [
+        "sin(theta1)/c1 = sin(theta2)/c2",
+        "Kr = sqrt(b0/b)"
+      ],
+      "topics": [4],
+      "subtopics": ["refraction coefficient", "wave orthogonals", "caustics", "wave convergence/divergence"]
+    },
+    {
+      "id": "wave_diffraction",
+      "name": "Wave Diffraction",
+      "keywords": ["diffraction", "wave scattering", "breakwater", "wave spreading", "sheltered regions"],
+      "prerequisites": ["linear_wave_theory"],
+      "related": ["wave_refraction", "harbor_resonance"],
+      "equations": ["Kd diffraction coefficient", "Helmholtz equation"],
+      "topics": [4],
+      "subtopics": ["diffraction around breakwater", "diffraction diagram", "gap diffraction"]
+    },
+    {
+      "id": "wave_reflection",
+      "name": "Wave Reflection",
+      "keywords": ["reflection", "standing waves", "reflection coefficient", "seawalls", "breakwaters"],
+      "prerequisites": ["linear_wave_theory"],
+      "related": ["standing_waves", "wave_runup"],
+      "equations": [
+        "Kr = Hr/Hi",
+        "standing wave amplitude"
+      ],
+      "topics": [4],
+      "subtopics": ["partial reflection", "total reflection", "Mach reflection"]
+    },
+    {
+      "id": "standing_waves",
+      "name": "Standing Waves",
+      "keywords": ["standing waves", "clapotis", "nodes", "antinodes", "resonance"],
+      "prerequisites": ["wave_reflection"],
+      "related": ["harbor_resonance", "seiches"],
+      "equations": [
+        "eta = 2*A*cos(kx)*cos(omega*t)",
+        "progressive + reflected wave"
+      ],
+      "topics": [4],
+      "subtopics": ["fully standing", "partially standing", "pressure nodes"]
+    },
+    {
+      "id": "wave_breaking",
+      "name": "Wave Breaking",
+      "keywords": ["wave breaking", "surf zone", "breaking criterion", "breaker height", "breaking depth", "energy dissipation"],
+      "prerequisites": ["wave_shoaling", "finite_amplitude_waves"],
+      "related": ["breaker_types", "surf_zone_processes", "iribarren_number"],
+      "equations": [
+        "gamma_b = H_b/h_b",
+        "gamma_b ~ 0.78 (McCowan)",
+        "gamma_b = f(beach_slope, H0/L0)"
+      ],
+      "topics": [4, 5],
+      "subtopics": ["breaking index", "depth-limited breaking", "steepness-limited breaking"]
+    },
+    {
+      "id": "breaker_types",
+      "name": "Breaker Types",
+      "keywords": ["spilling", "plunging", "collapsing", "surging", "breaker classification"],
+      "prerequisites": ["wave_breaking", "iribarren_number"],
+      "related": ["beach_slope", "wave_steepness"],
+      "equations": ["Iribarren number xi = tan(beta)/sqrt(H0/L0)"],
+      "topics": [5],
+      "subtopics": ["Battjes classification", "surf similarity parameter", "breaker morphology"]
+    },
+    {
+      "id": "iribarren_number",
+      "name": "Iribarren Number (Surf Similarity Parameter)",
+      "keywords": ["Iribarren", "surf similarity", "xi", "breaker parameter"],
+      "prerequisites": ["wave_breaking"],
+      "related": ["breaker_types", "wave_runup"],
+      "equations": ["xi = tan(beta)/sqrt(H0/L0)"],
+      "topics": [5],
+      "subtopics": ["controls breaker type", "runup correlation"]
+    },
+    {
+      "id": "surf_zone_processes",
+      "name": "Surf Zone Processes",
+      "keywords": ["surf zone", "inner surf zone", "outer surf zone", "breaker zone", "swash zone"],
+      "prerequisites": ["wave_breaking"],
+      "related": ["wave_setup", "wave_runup", "undertow", "longshore_current"],
+      "equations": [],
+      "topics": [5, 6],
+      "subtopics": ["energy dissipation", "turbulence", "aeration", "reformed waves"]
+    },
+    {
+      "id": "wave_setup_setdown",
+      "name": "Wave Setup and Setdown",
+      "keywords": ["wave setup", "setdown", "mean water level", "MWL change", "superelevation"],
+      "prerequisites": ["radiation_stress", "wave_breaking"],
+      "related": ["radiation_stress", "momentum_balance"],
+      "equations": [
+        "deta/dx = -(1/(rho*g*h))*dSxx/dx",
+        "setup ~ H^2/(8*h)"
+      ],
+      "topics": [5, 6],
+      "subtopics": ["setdown offshore", "setup onshore", "storm surge contribution"]
+    },
+    {
+      "id": "radiation_stress",
+      "name": "Radiation Stress",
+      "keywords": ["radiation stress", "Sxx", "Sxy", "Syy", "momentum flux", "wave-induced forcing"],
+      "prerequisites": ["wave_energy", "linear_wave_theory"],
+      "related": ["wave_setup_setdown", "longshore_current", "nearshore_circulation"],
+      "equations": [
+        "Sxx = E*(2*n - 0.5)",
+        "Sxy = 0 for normally incident waves",
+        "dSxx/dx drives setup"
+      ],
+      "topics": [5, 6],
+      "subtopics": ["excess momentum flux", "tensor components", "radiation stress gradients"]
+    },
+    {
+      "id": "longshore_current",
+      "name": "Longshore Currents",
+      "keywords": ["longshore current", "alongshore current", "littoral drift", "oblique wave incidence"],
+      "prerequisites": ["radiation_stress", "wave_breaking"],
+      "related": ["sediment_transport", "rip_currents", "nearshore_circulation"],
+      "equations": [
+        "V ~ (5/16)*sqrt(g/K)*(H_b/h_b)*sin(2*theta_b)",
+        "radiation stress gradient drives current"
+      ],
+      "topics": [6, 7],
+      "subtopics": ["oblique wave breaking", "alongshore momentum", "bottom friction"]
+    },
+    {
+      "id": "rip_currents",
+      "name": "Rip Currents",
+      "keywords": ["rip current", "rip channel", "feeder current", "circulation cells", "beach safety"],
+      "prerequisites": ["wave_breaking", "longshore_current"],
+      "related": ["nearshore_circulation", "edge_waves"],
+      "equations": [],
+      "topics": [6, 7],
+      "subtopics": ["generation mechanisms", "spacing", "velocity", "safety hazard"]
+    },
+    {
+      "id": "nearshore_circulation",
+      "name": "Nearshore Circulation",
+      "keywords": ["circulation patterns", "cellular circulation", "vorticity", "nearshore hydrodynamics"],
+      "prerequisites": ["radiation_stress", "wave_breaking"],
+      "related": ["longshore_current", "rip_currents", "undertow"],
+      "equations": [],
+      "topics": [6, 7],
+      "subtopics": ["3D circulation", "vertical structure"]
+    },
+    {
+      "id": "undertow",
+      "name": "Undertow",
+      "keywords": ["undertow", "return flow", "offshore flow", "mass balance", "vertical circulation"],
+      "prerequisites": ["wave_breaking", "surf_zone_processes"],
+      "related": ["wave_setup_setdown", "sediment_transport"],
+      "equations": ["mass conservation in surf zone"],
+      "topics": [6],
+      "subtopics": ["depth-averaged", "vertical profile", "compensating flow"]
+    },
+    {
+      "id": "wave_runup",
+      "name": "Wave Runup",
+      "keywords": ["runup", "swash", "R2%", "runup height", "maximum elevation"],
+      "prerequisites": ["wave_breaking", "iribarren_number"],
+      "related": ["beach_slope", "swash_zone"],
+      "equations": [
+        "R = C*H0*xi",
+        "R2% runup exceeded by 2% of waves"
+      ],
+      "topics": [5],
+      "subtopics": ["Hunt's formula", "statistical runup", "overtopping"]
+    },
+    {
+      "id": "swash_zone",
+      "name": "Swash Zone",
+      "keywords": ["swash", "uprush", "backwash", "runup", "rundown"],
+      "prerequisites": ["wave_runup"],
+      "related": ["beach_morphology", "sediment_transport"],
+      "equations": [],
+      "topics": [5, 6],
+      "subtopics": ["asymmetric flow", "infiltration", "sediment transport"]
+    },
+    {
+      "id": "sediment_transport",
+      "name": "Sediment Transport",
+      "keywords": ["sediment transport", "littoral drift", "bed load", "suspended load", "morphology"],
+      "prerequisites": ["longshore_current", "wave_breaking"],
+      "related": ["beach_erosion", "beach_accretion", "coastal_structures"],
+      "equations": [
+        "CERC formula",
+        "Q = K*P_ls",
+        "Shields parameter"
+      ],
+      "topics": [7, 8],
+      "subtopics": ["cross-shore", "longshore", "total transport", "transport modes"]
+    },
+    {
+      "id": "beach_morphology",
+      "name": "Beach Morphology",
+      "keywords": ["beach profile", "berm", "bar", "trough", "foreshore", "backshore"],
+      "prerequisites": ["wave_breaking", "sediment_transport"],
+      "related": ["beach_states", "beach_erosion"],
+      "equations": [],
+      "topics": [7, 8],
+      "subtopics": ["equilibrium profile", "Dean profile", "seasonal changes"]
+    },
+    {
+      "id": "beach_states",
+      "name": "Beach States",
+      "keywords": ["dissipative", "reflective", "intermediate", "Wright-Short classification"],
+      "prerequisites": ["beach_morphology", "wave_breaking"],
+      "related": ["beach_morphology", "omega_parameter"],
+      "equations": ["Omega = H_b/(w_s*T)"],
+      "topics": [8],
+      "subtopics": ["beach classification", "morphodynamic states"]
+    },
+    {
+      "id": "tides",
+      "name": "Tidal Theory",
+      "keywords": ["tides", "astronomical forcing", "tidal constituents", "harmonic analysis"],
+      "prerequisites": ["long_waves"],
+      "related": ["tidal_constituents", "tidal_analysis", "tidal_currents"],
+      "equations": [
+        "equilibrium tide",
+        "tidal forcing function",
+        "harmonic constituents"
+      ],
+      "topics": [9],
+      "subtopics": ["gravitational forcing", "equilibrium theory", "dynamic theory"]
+    },
+    {
+      "id": "tidal_constituents",
+      "name": "Tidal Constituents",
+      "keywords": ["M2", "S2", "K1", "O1", "N2", "principal constituents", "harmonics"],
+      "prerequisites": ["tides"],
+      "related": ["tidal_analysis", "harmonic_analysis"],
+      "equations": ["eta = sum(A_i*cos(omega_i*t - phi_i))"],
+      "topics": [9],
+      "subtopics": ["semi-diurnal", "diurnal", "constituent periods", "nodal corrections"]
+    },
+    {
+      "id": "tidal_analysis",
+      "name": "Tidal Analysis and Prediction",
+      "keywords": ["harmonic analysis", "tidal prediction", "least squares", "Fourier analysis"],
+      "prerequisites": ["tidal_constituents"],
+      "related": ["tides"],
+      "equations": ["harmonic decomposition"],
+      "topics": [9],
+      "subtopics": ["constituent extraction", "amplitude and phase", "prediction methods"]
+    },
+    {
+      "id": "tidal_currents",
+      "name": "Tidal Currents",
+      "keywords": ["tidal currents", "tidal ellipse", "flood current", "ebb current"],
+      "prerequisites": ["tides"],
+      "related": ["tidal_constituents"],
+      "equations": [],
+      "topics": [9],
+      "subtopics": ["rotary currents", "rectilinear currents"]
+    },
+    {
+      "id": "irregular_waves",
+      "name": "Irregular Wave Theory",
+      "keywords": ["irregular waves", "random waves", "sea state", "wave variability", "spectral analysis"],
+      "prerequisites": ["linear_wave_theory"],
+      "related": ["wave_spectrum", "statistical_wave_parameters"],
+      "equations": [
+        "superposition of components",
+        "Rayleigh distribution"
+      ],
+      "topics": [10],
+      "subtopics": ["linear superposition", "random phase", "Gaussian sea"]
+    },
+    {
+      "id": "wave_spectrum",
+      "name": "Wave Spectrum",
+      "keywords": ["wave spectrum", "energy spectrum", "S(f)", "spectral density", "frequency spectrum"],
+      "prerequisites": ["irregular_waves"],
+      "related": ["jonswap_spectrum", "pierson_moskowitz", "spectral_moments"],
+      "equations": [
+        "S(f) energy density",
+        "m_n = integral(f^n*S(f)df)"
+      ],
+      "topics": [10],
+      "subtopics": ["variance spectrum", "directional spectrum", "spectral shape"]
+    },
+    {
+      "id": "jonswap_spectrum",
+      "name": "JONSWAP Spectrum",
+      "keywords": ["JONSWAP", "Joint North Sea Wave Project", "fetch-limited", "gamma parameter"],
+      "prerequisites": ["wave_spectrum"],
+      "related": ["pierson_moskowitz", "wave_spectrum"],
+      "equations": [
+        "S(f) = alpha*g^2*(2*pi)^(-4)*f^(-5)*exp(...)*gamma^r",
+        "peak enhancement factor gamma"
+      ],
+      "topics": [10],
+      "subtopics": ["fetch-limited growth", "peak enhancement", "developing sea"]
+    },
+    {
+      "id": "pierson_moskowitz",
+      "name": "Pierson-Moskowitz Spectrum",
+      "keywords": ["Pierson-Moskowitz", "PM spectrum", "fully developed sea", "wind-sea"],
+      "prerequisites": ["wave_spectrum"],
+      "related": ["jonswap_spectrum"],
+      "equations": ["S(f) = alpha*g^2*(2*pi)^(-4)*f^(-5)*exp(...)"],
+      "topics": [10],
+      "subtopics": ["fully developed", "limiting case of JONSWAP with gamma=1"]
+    },
+    {
+      "id": "statistical_wave_parameters",
+      "name": "Statistical Wave Parameters",
+      "keywords": ["Hs", "H1/3", "Hrms", "Hmax", "Tz", "Tp", "significant wave height"],
+      "prerequisites": ["irregular_waves"],
+      "related": ["wave_spectrum", "rayleigh_distribution"],
+      "equations": [
+        "Hs = H1/3 = 4*sqrt(m0)",
+        "Hrms = sqrt(8*m0)",
+        "Hmax ~ 1.86*Hs (Rayleigh)"
+      ],
+      "topics": [10],
+      "subtopics": ["wave height statistics", "period statistics", "characteristic parameters"]
+    },
+    {
+      "id": "spectral_moments",
+      "name": "Spectral Moments",
+      "keywords": ["spectral moments", "m0", "m1", "m2", "variance", "mean frequency"],
+      "prerequisites": ["wave_spectrum"],
+      "related": ["statistical_wave_parameters"],
+      "equations": [
+        "m_n = integral(f^n*S(f)df)",
+        "m0 = variance"
+      ],
+      "topics": [10],
+      "subtopics": ["zeroth moment", "spectral width", "characteristic frequencies"]
+    },
+    {
+      "id": "rayleigh_distribution",
+      "name": "Rayleigh Distribution",
+      "keywords": ["Rayleigh", "wave height distribution", "probability distribution", "exceedance"],
+      "prerequisites": ["irregular_waves"],
+      "related": ["statistical_wave_parameters"],
+      "equations": [
+        "P(H) = (H/Hrms^2)*exp(-H^2/(2*Hrms^2))",
+        "Hmax/Hs ~ 1.86 for 1000 waves"
+      ],
+      "topics": [10],
+      "subtopics": ["narrow-band assumption", "height distribution", "design wave"]
+    },
+    {
+      "id": "wave_forces",
+      "name": "Wave Forces on Structures",
+      "keywords": ["wave forces", "Morison equation", "drag force", "inertia force", "diffraction regime"],
+      "prerequisites": ["wave_pressure", "wave_particle_motion"],
+      "related": ["coastal_structures", "force_coefficients"],
+      "equations": [
+        "F = Fd + Fi",
+        "Morison equation",
+        "drag ~ u|u|",
+        "inertia ~ du/dt"
+      ],
+      "topics": [4],
+      "subtopics": ["drag dominated", "inertia dominated", "diffraction theory"]
+    },
+    {
+      "id": "coastal_structures",
+      "name": "Coastal Structures",
+      "keywords": ["breakwater", "seawall", "groin", "jetty", "revetment", "coastal protection"],
+      "prerequisites": ["wave_forces", "sediment_transport"],
+      "related": ["wave_reflection", "wave_diffraction", "scour"],
+      "equations": [],
+      "topics": [7, 8],
+      "subtopics": ["structure types", "design considerations", "environmental impacts"]
+    },
+    {
+      "id": "harbor_resonance",
+      "name": "Harbor Resonance and Seiches",
+      "keywords": ["harbor oscillation", "resonance", "seiche", "eigen periods", "standing waves"],
+      "prerequisites": ["standing_waves", "long_waves"],
+      "related": ["wave_diffraction"],
+      "equations": [
+        "T_n = 2L/(n*sqrt(gh))",
+        "Helmholtz resonance"
+      ],
+      "topics": [4],
+      "subtopics": ["basin modes", "quarter-wave resonance", "Helmholtz mode"]
+    },
+    {
+      "id": "edge_waves",
+      "name": "Edge Waves",
+      "keywords": ["edge waves", "trapped waves", "rhythmic topography", "beach cusps"],
+      "prerequisites": ["wave_refraction", "standing_waves"],
+      "related": ["rip_currents", "beach_morphology"],
+      "equations": ["edge wave dispersion relation"],
+      "topics": [6],
+      "subtopics": ["progressive edge waves", "standing edge waves", "mode number"]
+    },
+    {
+      "id": "infragravity_waves",
+      "name": "Infragravity Waves",
+      "keywords": ["infragravity", "surf beat", "long period waves", "low frequency", "bound long waves"],
+      "prerequisites": ["wave_groups", "surf_zone_processes"],
+      "related": ["wave_groups", "harbor_resonance"],
+      "equations": [],
+      "topics": [10],
+      "subtopics": ["bound waves", "free waves", "breakpoint forcing"]
+    },
+    {
+      "id": "wave_groups",
+      "name": "Wave Groups and Group-Induced Effects",
+      "keywords": ["wave groups", "group structure", "bound long waves", "set-down oscillation"],
+      "prerequisites": ["group_velocity", "irregular_waves"],
+      "related": ["infragravity_waves", "surf_beat"],
+      "equations": [],
+      "topics": [10],
+      "subtopics": ["groupiness factor", "wave envelope", "low frequency forcing"]
+    },
+    {
+      "id": "wave_climate",
+      "name": "Wave Climate",
+      "keywords": ["wave climate", "wave rose", "extreme waves", "return period", "design conditions"],
+      "prerequisites": ["irregular_waves", "statistical_wave_parameters"],
+      "related": ["extreme_value_analysis"],
+      "equations": [],
+      "topics": [10],
+      "subtopics": ["directional distribution", "seasonal variability", "long-term statistics"]
+    }
+  ]
+}

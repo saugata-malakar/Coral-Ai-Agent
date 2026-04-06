@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: coastal-ai-agent-api
+    runtime: python311
+    region: oregon
+    plan: starter
+    
+    # Build command
+    buildCommand: cd api && pip install -r requirements.txt
+    
+    # Start command
+    startCommand: cd api && uvicorn main:app --host 0.0.0.0 --port 8000
+    
+    # Environment variables (set these on Render dashboard)
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: GCP_SA_KEY_PATH
+        value: ./service-account-key.json
+      - key: GCP_LOCATION
+        value: us-central1
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_EMBED_MODEL
+        value: text-embedding-004
+      - key: CHROMA_COLLECTION
+        value: coastal_chunks_v3
+      - key: JWT_SECRET
+        value: ${JWT_SECRET}  # Set on dashboard
+      - key: GOOGLE_CLIENT_ID
+        value: ${GOOGLE_CLIENT_ID}  # Set on dashboard for OAuth
+      - key: GOOGLE_CLIENT_SECRET
+        value: ${GOOGLE_CLIENT_SECRET}  # Set on dashboard
+      - key: TAVILY_API_KEY
+        value: ${TAVILY_API_KEY}  # Set on dashboard
+    
+    # Disk for persistent data
+    disk:
+      name: coastal-data
+      mountPath: /render/project/data
+      sizeGb: 10
+    
+    # Health check
+    healthCheckPath: /
+    
+    # For files larger than can be in .env
+    headers:
+      - path: /api/*
+        name: Content-Type
+        value: application/json

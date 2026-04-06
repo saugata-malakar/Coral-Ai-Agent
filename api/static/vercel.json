@@ -1,0 +1,65 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "other",
+  "regions": ["iad1"],
+  
+  "env": {
+    "REACT_APP_API_URL": {
+      "description": "Backend API URL",
+      "example": "https://coastal-ai-agent-api.onrender.com",
+      "required": false
+    }
+  },
+  
+  "redirects": [
+    {
+      "source": "/api/:path*",
+      "destination": "${REACT_APP_API_URL}/api/:path*"
+    },
+    {
+      "source": "/chat",
+      "destination": "${REACT_APP_API_URL}/chat"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "${REACT_APP_API_URL}/auth/:path*"
+    }
+  ],
+  
+  "rewrites": [
+    {
+      "source": "/auth.html",
+      "destination": "/auth.html"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
+    }
+  ],
+  
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,HEAD,PUT,PATCH,POST,DELETE"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type,Authorization"
+        }
+      ]
+    }
+  ]
+}

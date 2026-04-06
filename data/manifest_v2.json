@@ -1,0 +1,35 @@
+{
+  "version": "2.0",
+  "build_date": "2026-04-05T01:59:24.588012",
+  "total_chunks": 1891,
+  "embedding_model": "text-embedding-004",
+  "embedding_dim": 768,
+  "reranker_model": "none",
+  "vision_model": "OpenGVLab/InternVL2-2B",
+  "concept_graph_concepts": 54,
+  "doc_type_counts": {
+    "lecture": 265,
+    "textbook": 1616,
+    "tutorial": 10
+  },
+  "topic_counts": {
+    "0": 1642,
+    "1": 41,
+    "2": 21,
+    "3": 16,
+    "4": 21,
+    "5": 14,
+    "6": 14,
+    "7": 20,
+    "8": 16,
+    "9": 24,
+    "10": 62
+  },
+  "artifacts": {
+    "chroma_db": "/kaggle/working/chroma",
+    "bm25_index": "/kaggle/working/bm25_index.pkl",
+    "bm25_mapping": "/kaggle/working/bm25_mapping.json",
+    "embeddings": "/kaggle/working/embeddings.npy",
+    "chunks": "/kaggle/working/chunks.json"
+  }
+}

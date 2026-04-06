@@ -1,0 +1,21 @@
+{
+  "name": "coastal-ai-agent-frontend",
+  "version": "1.0.0",
+  "description": "Coastal Hydrodynamics AI Teaching Assistant - Frontend",
+  "private": true,
+  "scripts": {
+    "dev": "npm run start",
+    "start": "python -m http.server 3000",
+    "build": "mkdir -p dist && cp -r . dist/ && mv dist/vercel.json dist/ 2>/dev/null || true",
+    "serve": "npm run build && cd dist && python -m http.server 3000"
+  },
+  "dependencies": {
+    "katex": "^0.16.9"
+  },
+  "devDependencies": {
+    "vercel": "latest"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
