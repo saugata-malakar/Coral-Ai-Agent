@@ -1,8 +1,8 @@
 # Coastal Hydrodynamics Teaching Assistant: Complete System Documentation
 
-**Version:** 4.0  
+**Version:** 3.0  
 **Purpose:** RAG-powered AI teaching assistant for coastal engineering coursework  
-**Tech Stack:** FastAPI, LangChain, ChromaDB, Google Vertex AI (Gemini 2.5 Flash), LangGraph ReAct Agent
+**Tech Stack:** LangChain, ChromaDB, Google Vertex AI, LangGraph ReAct Agent
 
 ---
 
@@ -14,8 +14,7 @@
 4. [Agentic Tool System](#agentic-tool-system)
 5. [Agent Orchestration](#agent-orchestration)
 6. [Technical Specifications](#technical-specifications)
-7. [API & Deployment Architecture](#api--deployment-architecture)
-8. [Frontend Integration](#frontend-integration)
+7. [Deployment Architecture](#deployment-architecture)
 
 ---
 
@@ -65,12 +64,11 @@
                    │
                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│           FASTAPI BACKEND (api/)                                 │
+│           AGENT RUNTIME (coastal_agent.ipynb)                    │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────┐     │
 │  │              LangGraph ReAct Agent                     │     │
 │  │              (Gemini 2.5 Flash)                        │     │
-│  │              with MemorySaver Checkpointing            │     │
 │  └────────────────────────────────────────────────────────┘     │
 │                           │                                     │
 │        ┌──────────────────┼──────────────────┐                  │
@@ -85,16 +83,6 @@
 │  │   Plot   │      │ Document │                                │
 │  │Generator │      │  Reader  │                                │
 │  └──────────┘      └──────────┘                                │
-└──────────────────────────────────────────────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────────────────────────┐
-│           SINGLE-PAGE FRONTEND (api/static/index.html)          │
-│  • Chat interface with session management                       │
-│  • File upload support (PDF/PNG/JPG)                           │
-│  • LaTeX rendering with KaTeX                                   │
-│  • Plot display and download                                    │
-│  • Conversation history sidebar                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -417,116 +405,103 @@ with open('data/bm25_index.pkl', 'wb') as f:
 
 ### 3.1 Hybrid Retrieval System
 
-**File**: `api/app/retrieval.py`
-
-**Strategy**: Combine semantic search (ChromaDB) + keyword search (BM25) with **Reciprocal Rank Fusion (RRF)**
+**Strategy**: Combine semantic search (ChromaDB) + keyword search (BM25)
 
 ```python
-# ── Vertex AI init ────────────────────────────────────────────────
-gcp_creds = service_account.Credentials.from_service_account_info(
-    SA_KEY_DICT, scopes=["https://www.googleapis.com/auth/cloud-platform"]
-)
-vertexai.init(project=GCP_PROJECT, location=GCP_LOCATION, credentials=gcp_creds)
-
-# ── Embedding model ───────────────────────────────────────────────
-_embed_model = TextEmbeddingModel.from_pretrained(GEMINI_EMBED_MODEL)
-
-def embed_query(text: str) -> list:
-    result = _embed_model.get_embeddings(
-        [TextEmbeddingInput(text=text, task_type="RETRIEVAL_QUERY")]
+def hybrid_search(query: str, top_k=10) -> list:
+    """
+    Retrieve most relevant chunks using both vector similarity 
+    and keyword matching.
+    """
+    
+    # 1. Semantic search via ChromaDB
+    query_embedding = embedding_model.get_embeddings(
+        [query], 
+        task_type='RETRIEVAL_QUERY'
+    )[0].values
+    
+    vector_results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k
     )
-    return result[0].values
-
-# ── ChromaDB + BM25 loading ───────────────────────────────────────
-_chroma_client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-collection = _chroma_client.get_collection(CHROMA_COLLECTION)
-
-with open(BM25_FILE, "rb") as f:
-    bm25 = pickle.load(f)
-with open(BM25_MAP_FILE, encoding="utf-8") as f:
-    bm25_mapping = json.load(f)
-with open(CHUNKS_FILE, encoding="utf-8") as f:
-    chunks_by_id = {c["id"]: c for c in json.load(f)}
-
-# ── Domain-aware tokenizer ────────────────────────────────────────
-_DOMAIN_KEEP = {"wave","water","depth","period","height","force","current","flow","pressure"}
-_stemmer = PorterStemmer()
-_stop_words = set(stopwords.words("english"))
-
-def tokenize_bm25(text: str) -> list:
-    tokens = word_tokenize(text.lower())
-    return [_stemmer.stem(t) for t in tokens 
-            if t.isalpha() and (t not in _stop_words or t in _DOMAIN_KEEP)]
-
-# ── Hybrid search with RRF ────────────────────────────────────────
-def hybrid_search(query: str, k: int = 8) -> list:
-    RRF_K, TOP_N = 60, 20
     
-    # Dense retrieval (ChromaDB)
-    q_vec = embed_query(query)
-    chroma_res = collection.query(query_embeddings=[q_vec], n_results=TOP_N)
-    dense_ranks = {cid: rank for rank, cid in enumerate(chroma_res["ids"][0])}
+    # 2. Keyword search via BM25
+    tokenized_query = query.lower().split()
+    bm25_scores = bm25.get_scores(tokenized_query)
+    top_bm25_indices = np.argsort(bm25_scores)[-top_k:][::-1]
     
-    # Sparse retrieval (BM25)
-    bm25_scores = bm25.get_scores(tokenize_bm25(query))
-    bm25_top_idx = np.argsort(bm25_scores)[::-1][:TOP_N]
-    sparse_ranks = {bm25_mapping[i]: rank for rank, i in enumerate(bm25_top_idx)}
+    # 3. Merge results (Reciprocal Rank Fusion)
+    final_results = reciprocal_rank_fusion(
+        vector_results, 
+        top_bm25_indices,
+        weights=[0.7, 0.3]  # Favor semantic over keyword
+    )
     
-    # Reciprocal Rank Fusion
-    all_ids = set(dense_ranks) | set(sparse_ranks)
-    rrf_scores = {}
-    for cid in all_ids:
-        score = 0.0
-        if cid in dense_ranks:
-            score += 1.0 / (RRF_K + dense_ranks[cid])
-        if cid in sparse_ranks:
-            score += 1.0 / (RRF_K + sparse_ranks[cid])
-        rrf_scores[cid] = score
-    
-    top_ids = sorted(rrf_scores, key=rrf_scores.get, reverse=True)[:k]
-    return [{"id": cid, "text": chunks_by_id[cid]["text"], 
-             "metadata": chunks_by_id[cid]["metadata"], "rrf_score": rrf_scores[cid]}
-            for cid in top_ids]
+    return final_results[:top_k]
 ```
 
-**Why Hybrid with RRF?**
+**Why Hybrid?**
 - **Semantic search**: Handles paraphrased questions ("What causes waves to break?" → wave breaking theory)
 - **Keyword search**: Captures exact technical terms ("Froude number", "Coriolis parameter")
-- **RRF fusion**: Balances both signals without tuning weights — simply uses rank positions
 
-### 3.2 RAG Search Tool
-
-**File**: `api/app/tools/rag.py`
+### 3.2 RAG Search Tool Implementation
 
 ```python
 from langchain_core.tools import tool
-from ..retrieval import hybrid_search
+import chromadb
+
+# Load ChromaDB collection
+chroma_client = chromadb.PersistentClient(path='data/chroma')
+collection = chroma_client.get_collection('coastal_chunks_v3')
 
 @tool
-def rag_search(query: str) -> str:
-    """Search the coastal hydrodynamics course materials (textbooks, lectures, tutorials).
-    Always call this first for any course-related question before answering."""
-    results = hybrid_search(query, k=8)
-    texts = [r["text"] for r in results if r.get("text", "").strip()]
-    if not texts:
-        return "No relevant course materials found for this query."
-    return "\n\n---\n\n".join(texts)
+def rag_search(query: str, top_k: int = 5) -> str:
+    """
+    Search course materials (textbooks + lecture slides) for relevant information.
+    Returns: Formatted text with source citations.
+    
+    Args:
+        query: Natural language question
+        top_k: Number of chunks to retrieve (default: 5)
+    """
+    
+    # Generate query embedding
+    query_emb = embedding_model.get_embeddings(
+        [query], 
+        task_type='RETRIEVAL_QUERY'
+    )[0].values
+    
+    # Retrieve from ChromaDB
+    results = collection.query(
+        query_embeddings=[query_emb],
+        n_results=top_k,
+        include=['documents', 'metadatas']
+    )
+    
+    # Format results with citations
+    formatted = ""
+    for i, (doc, meta) in enumerate(zip(results['documents'][0], 
+                                         results['metadatas'][0])):
+        source = f"{meta['source_file']} (p. {meta['page_number']})"
+        formatted += f"\n[Source {i+1}: {source}]\n{doc}\n"
+    
+    return formatted
 ```
 
 **Example Usage**:
 ```
 Agent receives question: "How do you calculate wave celerity?"
 
-rag_search("wave celerity calculation")
+rag_search("wave celerity calculation", top_k=3)
 
 Returns:
-[Chunk 1] Wave celerity (phase speed) is given by:
+[Source 1: Topic_1_Wave_mechanics.pdf (p. 5)]
+Wave celerity (phase speed) is given by:
 $$c = \frac{L}{T} = \sqrt{\frac{gL}{2\pi} \tanh\left(\frac{2\pi h}{L}\right)}$$
 For deep water (h/L > 0.5): $c_0 = \frac{gT}{2\pi}$
 
----
-
-[Chunk 2] The dispersion relationship relates wave period T, wavelength L, and depth h...
+[Source 2: Coastal_Dynamics_Textbook.pdf (p. 67)]
+The dispersion relationship relates wave period T, wavelength L, and depth h...
 ```
 
 ---
@@ -535,79 +510,62 @@ For deep water (h/L > 0.5): $c_0 = \frac{gT}{2\pi}$
 
 ### 4.1 Tool Overview
 
-The agent has access to **5 specialized tools** defined in `api/app/tools/`:
+The agent has access to **5 specialized tools**:
 
-| Tool | Purpose | Implementation | Output |
-|------|---------|----------------|--------|
-| `rag_search` | Retrieve course content | Hybrid search (ChromaDB + BM25 + RRF) | Text chunks |
-| `run_python` | Execute Python code | In-memory exec() with pre-loaded modules | stdout/stderr + plots |
-| `latex_generator` | Generate LaTeX documents | Gemini 2.5 Flash (T=1.0) | Raw LaTeX code |
-| `generate_plot` | Create matplotlib plots | Gemini 2.5 Flash (T=0.2) → run_code | PNG image path |
-| `read_document` | Read uploaded PDFs/images | PyMuPDF + Gemini Vision | Extracted text |
-
-**Tool Registration** (`api/app/tools/__init__.py`):
-```python
-from .rag import rag_search
-from .code_runner import run_python
-from .latex import latex_generator
-from .plotter import generate_plot
-from .document_reader import read_document
-
-ALL_TOOLS = [rag_search, run_python, latex_generator, generate_plot, read_document]
-```
+| Tool | Purpose | LLM | Output |
+|------|---------|-----|--------|
+| `rag_search` | Retrieve course content | N/A | Text + citations |
+| `run_python` | Execute Python code | N/A | stdout/stderr |
+| `latex_generator` | Generate LaTeX documents | Gemini 2.5 Flash (T=1.0) | Raw LaTeX |
+| `generate_plot` | Create matplotlib plots | Gemini 2.5 Flash (T=0.2) | PNG image |
+| `read_document` | OCR uploaded PDFs/images | Gemini 2.5 Flash (T=0.2) | Extracted text |
 
 ### 4.2 Tool: `run_python`
 
-**File**: `api/app/tools/code_runner.py`
-
-**Purpose**: Execute numerical computations using Python/NumPy/SciPy with **in-memory exec()** (faster than subprocess).
-
-**Key Innovation**: Pre-imports heavy modules at server startup, making each code execution nearly instant.
+**Purpose**: Execute numerical computations using Python/NumPy/SciPy
 
 ```python
-# Pre-import heavy modules ONCE at server startup (not per-request)
-import numpy as np
-from scipy.optimize import brentq, fsolve
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-# Pre-built namespace with all imports ready
-_BASE_NAMESPACE = {
-    "np": np,
-    "numpy": np,
-    "brentq": brentq,
-    "fsolve": fsolve,
-    "plt": plt,
-    "matplotlib": matplotlib,
-    "__builtins__": __builtins__,
-}
+from langchain_core.tools import tool
+import subprocess
+import tempfile
 
 @tool
 def run_python(code: str) -> str:
-    """Execute Python code for numerical calculations or plots.
+    """
+    Execute Python code in a sandboxed environment.
+    Pre-imported: numpy as np, scipy, sympy, matplotlib.pyplot as plt
+    
+    Returns: Combined stdout and stderr output.
+    """
+    
+    # Wrap code with common imports
+    full_code = """
+import numpy as np
+import scipy
+from scipy import integrate, optimize
+import sympy as sp
+from sympy import symbols, solve, simplify, diff, integrate as sym_integrate
 
-    Pre-imported: numpy (np), matplotlib.pyplot (plt), brentq, fsolve.
-    For symbolic math, add: from sympy import symbols, solve, etc.
-
-    To save a plot: plt.savefig(_PLOT_PATH, dpi=150, bbox_inches='tight')
-    Do NOT call plt.show(). _PLOT_PATH is pre-set — do not redefine it.
-    ALWAYS call this tool for any numerical result. Never compute by hand."""
+""" + code
     
-    # Fresh namespace with pre-loaded imports + unique plot path
-    namespace = _BASE_NAMESPACE.copy()
-    namespace["_PLOT_PATH"] = str(PLOTS_DIR / f"{uuid.uuid4().hex}.png")
+    # Write to temp file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        f.write(full_code)
+        temp_path = f.name
     
-    stdout_capture = io.StringIO()
-    stderr_capture = io.StringIO()
-    
-    with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-        exec(code, namespace)
-    
-    out = stdout_capture.getvalue()
-    if plot_path exists:
-        out += f"\nPLOT_SAVED:{plot_path}"
-    return out
+    # Execute with timeout
+    try:
+        result = subprocess.run(
+            ['python', temp_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        return result.stdout + result.stderr
+    except subprocess.TimeoutExpired:
+        return "Error: Code execution exceeded 30 second timeout"
+    finally:
+        os.unlink(temp_path)
 ```
 
 **Example Usage**:
@@ -639,60 +597,54 @@ Returns: "Wave celerity: 12.34 m/s"
 
 ### 4.3 Tool: `latex_generator`
 
-**File**: `api/app/tools/latex.py`
-
 **Purpose**: Generate LaTeX code for equations, documents, or formatted content
 
-**Key Feature**: Includes a `compile_latex()` function that auto-selects `pdflatex` or `xelatex` and compiles via `latex.ytotech.com` API.
-
+**Configuration**:
 ```python
-TEXPERT_SYSTEM_PROMPT = (
-    "You are an AI assistant designed to generate LaTeX code... "
-    "CRITICAL: Generate only pdflatex-compatible LaTeX. Do NOT use fontspec, "
-    "unicode-math, polyglossia, xltxtra, xunicode, or any other XeLaTeX-specific packages."
-)
+from langchain_google_vertexai import ChatVertexAI
+from langchain_core.tools import tool
 
-# Packages that only work with XeLaTeX/LuaLaTeX — trigger automatic compiler switch
-XELATEX_PACKAGES = {"fontspec", "unicode-math", "polyglossia", "xltxtra", "xunicode"}
-
+# Dedicated LLM for LaTeX (creative temperature)
 _latex_llm = ChatVertexAI(
-    model=GEMINI_MODEL,
-    temperature=1.0,         # Creative for varied document styles
+    model='gemini-2.5-flash',
+    temperature=1.0,        # Higher for varied document styles
+    top_p=0.95,
     max_output_tokens=8192,
     credentials=gcp_creds,
+    project=GCP_PROJECT,
+    location=GCP_LOCATION
 )
 
+TEXPERT_SYSTEM_PROMPT = """
+You are a LaTeX code generator for coastal engineering documents.
+- Generate ONLY LaTeX code, no explanations
+- Do NOT wrap in ```latex markdown blocks
+- Comments are allowed (use % for non-code text)
+- Ensure code is compilation-ready
+- For equations, use amsmath package
+- For figures, use graphicx with placeholder filenames
+"""
+
 @tool
-def latex_generator(description: str, existing_latex: str = "") -> str:
-    """Generate LaTeX code for equations, full documents, or formatted content.
-    Provide existing_latex when iteratively modifying a document.
-    Returns raw LaTeX ready to compile."""
-    user_msg = (existing_latex + "\n" + description) if existing_latex else description
+def latex_generator(description: str, existing_latex: str = '') -> str:
+    """
+    Generate or modify LaTeX code.
+    
+    Args:
+        description: What to generate (e.g., "Derive wave energy equation")
+        existing_latex: Previous LaTeX to modify (for iterative editing)
+    
+    Returns: Raw LaTeX code ready to compile
+    """
+    
+    user_msg = f"{existing_latex}\n\n{description}" if existing_latex else description
+    
     response = _latex_llm.invoke([
         SystemMessage(content=TEXPERT_SYSTEM_PROMPT),
-        HumanMessage(content=user_msg),
+        HumanMessage(content=user_msg)
     ])
+    
     return response.content
-
-def compile_latex(source: str) -> tuple[Optional[bytes], Optional[str]]:
-    """
-    Compile LaTeX source to PDF via latex.ytotech.com API.
-    Auto-detects xelatex-specific packages and selects the right compiler first.
-    Falls back to the alternative compiler on failure.
-    """
-    needs_xelatex = any(f"\\usepackage{{{pkg}}}" in source for pkg in XELATEX_PACKAGES)
-    compilers = ["xelatex", "pdflatex"] if needs_xelatex else ["pdflatex", "xelatex"]
-    
-    for compiler in compilers:
-        response = requests.post(
-            "https://latex.ytotech.com/builds/sync",
-            json={"compiler": compiler, "resources": [{"main": True, "content": source}]},
-            timeout=60,
-        )
-        if response.content[:4] == b"%PDF":
-            return response.content, None
-    
-    return None, "LaTeX compilation failed with both compilers."
 ```
 
 **Example Usage**:
@@ -732,50 +684,55 @@ Final result:
 
 ### 4.4 Tool: `generate_plot`
 
-**File**: `api/app/tools/plotter.py`
-
 **Purpose**: Create matplotlib visualizations from natural language descriptions
 
-**Key Feature**: Uses Gemini to generate code, then executes via `run_code()`. Includes automatic retry on failure.
-
+**Implementation**:
 ```python
-PLOT_CODE_PROMPT = (
-    "Generate only executable Python matplotlib code. "
-    "You MUST save the final figure using: plt.savefig(_PLOT_PATH, dpi=150, bbox_inches='tight'). "
-    "_PLOT_PATH is a pre-defined variable — do NOT redefine it. "
-    "Do NOT call plt.show(). Return ONLY the Python code, no markdown fences."
+from langchain_core.tools import tool
+from langchain_core.messages import HumanMessage
+
+_plot_helper_llm = ChatVertexAI(
+    model='gemini-2.5-flash',
+    temperature=0.2,  # Low temperature for consistent code
+    max_output_tokens=2048,
+    credentials=gcp_creds,
+    project=GCP_PROJECT,
+    location=GCP_LOCATION
 )
 
-_plot_llm = ChatVertexAI(
-    model=GEMINI_MODEL,
-    temperature=0.2,  # Low temperature for consistent code generation
-    max_output_tokens=2048,
-)
+PLOT_CODE_PROMPT = """
+Generate ONLY matplotlib Python code.
+Save final figure to 'tmp_plot.png' using:
+plt.savefig('tmp_plot.png', dpi=150, bbox_inches='tight')
+Do NOT call plt.show()
+Return code only, no explanations, no markdown.
+"""
 
 @tool
-def generate_plot(description: str, data_context: str = "") -> str:
-    """Generate and return a matplotlib plot.
-    Describe what to plot in plain English.
-    Provide data_context with specific numerical values if needed.
-    Returns PLOT_SAVED:<path> on success."""
+def generate_plot(description: str, data_context: str = '') -> str:
+    """
+    Generate and render a matplotlib plot.
     
-    plot_path = str(PLOTS_DIR / f"{uuid.uuid4().hex}.png")
-    prompt = PLOT_CODE_PROMPT + "\n\nPlot request: " + description
+    Args:
+        description: What to plot (e.g., "Wave height vs depth")
+        data_context: Optional data values to use
+    
+    Returns: Success message or error
+    """
+    
+    prompt = f"{PLOT_CODE_PROMPT}\n\nPlot request: {description}"
     if data_context:
-        prompt += "\n\nData:\n" + data_context
+        prompt += f"\n\nData context:\n{data_context}"
     
-    code = _strip_fences(_plot_llm.invoke([HumanMessage(content=prompt)]).content)
-    r = run_code(code, plot_path=plot_path)
+    code_response = _plot_helper_llm.invoke([HumanMessage(content=prompt)])
+    code = code_response.content.strip()
     
-    # Retry once on failure
-    if not r["plot_path"] and r["stderr"]:
-        retry_prompt = prompt + "\n\nPrevious attempt failed:\n" + r["stderr"]
-        code2 = _strip_fences(_plot_llm.invoke([HumanMessage(content=retry_prompt)]).content)
-        r = run_code(code2, plot_path=plot_path)
+    # Strip accidental markdown fences
+    if code.startswith('```'):
+        code = '\n'.join(code.split('\n')[1:-1])
     
-    if r["plot_path"]:
-        return f"PLOT_SAVED:{r['plot_path']}\n{r['stdout']}"
-    return r["stderr"] or "Plot generation failed."
+    # Execute code using run_python tool
+    return run_python.func(code)
 ```
 
 **Example Usage**:
@@ -819,67 +776,68 @@ Returns: "Plot saved to tmp_plot.png"
 
 ### 4.5 Tool: `read_document`
 
-**File**: `api/app/tools/document_reader.py`
-
-**Purpose**: Process user-uploaded PDFs and images using Gemini Vision
-
-**Key Feature**: Hybrid approach — extracts text via PyMuPDF for text-heavy pages, uses Gemini Vision for figure-heavy pages (< 100 chars text).
+**Purpose**: Process user-uploaded PDFs and images using vision model
 
 ```python
+import fitz  # PyMuPDF
+import base64
+from pathlib import Path
+
 _vision_llm = ChatVertexAI(
-    model=GEMINI_MODEL,
+    model='gemini-2.5-flash',
     temperature=0.2,
     max_output_tokens=4096,
     credentials=gcp_creds,
+    project=GCP_PROJECT,
+    location=GCP_LOCATION
 )
 
 def _gemini_vision(image_bytes: bytes, mime: str, question: str) -> str:
     """Call Gemini vision endpoint with image."""
     b64 = base64.b64encode(image_bytes).decode()
     msg = HumanMessage(content=[
-        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-        {"type": "text", "text": "You are a coastal hydrodynamics expert. " + question},
+        {'type': 'image_url', 'image_url': {'url': f'data:{mime};base64,{b64}'}},
+        {'type': 'text', 'text': question}
     ])
     return _vision_llm.invoke([msg]).content
 
 @tool
-def read_document(file_path: str, question: str, pages: str = "all") -> str:
-    """Read and analyse a PDF or image file (jpg/png/jpeg).
-    For PDFs: extracts text per page; uses Gemini vision for figure-heavy pages (<100 chars text).
-    pages: 'all', a single page number '3', or a range '1-5'."""
+def read_document(file_path: str, question: str = "Extract all text and equations") -> str:
+    """
+    Read uploaded PDF or image file.
     
-    p = Path(file_path)
-    if not p.exists():
-        return f"ERROR: File not found: {file_path}"
+    Args:
+        file_path: Path to uploaded file
+        question: What to extract (default: all content)
     
-    ext = p.suffix.lower()
+    Returns: Extracted text, equations, and descriptions
+    """
     
-    # Handle images directly with vision
-    if ext in (".png", ".jpg", ".jpeg"):
-        mime = "image/png" if ext == ".png" else "image/jpeg"
-        return _gemini_vision(p.read_bytes(), mime, question)
+    path = Path(file_path)
     
-    # Handle PDFs with hybrid text/vision approach
-    if ext == ".pdf":
-        doc = fitz.open(str(p))
-        parts = []
+    if path.suffix.lower() == '.pdf':
+        # Extract pages as images and OCR with Gemini
+        doc = fitz.open(file_path)
+        full_text = ""
         
-        for i in page_indices:
-            page = doc[i]
-            text = page.get_text()
+        for page_num, page in enumerate(doc):
+            pix = page.get_pixmap(dpi=150)
+            img_bytes = pix.tobytes('png')
             
-            # If page has substantial text, use it directly
-            if len(text.strip()) >= 100:
-                parts.append(f"[Page {i+1}]\n{text.strip()}")
-            else:
-                # Figure-heavy page: use Gemini Vision
-                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-                vision_ans = _gemini_vision(pix.tobytes("png"), "image/png", question)
-                parts.append(f"[Page {i+1} – vision]\n{vision_ans}")
+            page_text = _gemini_vision(
+                img_bytes, 
+                'image/png',
+                f"Page {page_num+1}: {question}"
+            )
+            full_text += f"\n--- Page {page_num+1} ---\n{page_text}\n"
         
-        doc.close()
-        return "\n\n".join(parts)
-```
+        return full_text
+    
+    elif path.suffix.lower() in ['.png', '.jpg', '.jpeg']:
+        # Single image
+        img_bytes = path.read_bytes()
+        mime = f"image/{path.suffix[1:]}"
+        return _gemini_vision(img_bytes, mime, question)
     
     else:
         return f"Error: Unsupported file type {path.suffix}"
@@ -910,80 +868,56 @@ Calculate:
 
 ### 5.1 LangGraph ReAct Agent
 
-**File**: `api/app/agent.py`
+**Framework**: LangGraph (stateful agent orchestration)  
+**Pattern**: ReAct (Reasoning + Acting)
 
-**Framework**: LangGraph with MemorySaver checkpointing  
-**Pattern**: ReAct (Reasoning + Acting)  
-**Model**: Gemini 2.5 Flash
-
-**Key Features**:
-- **Session-based memory**: MemorySaver maintains conversation history per `session_id`
-- **Empty response guard**: Handles Gemini's occasional empty responses to prevent checkpoint corruption
-- **Post-model hook**: Sanitizes AI messages before storing in checkpoint
-- **Fallback synthesis**: If agent goes silent after tool calls, synthesizes response from tool outputs
-
+**Architecture**:
 ```python
 from langchain_google_vertexai import ChatVertexAI
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
-SYSTEM_PROMPT = (
-    "You are an expert coastal hydrodynamics teaching assistant for a university course.\n"
-    "You have access to the full course textbooks and lecture slides via RAG retrieval.\n\n"
-    "MANDATORY rules:\n"
-    "1. ALWAYS call rag_search first for any course-related question.\n"
-    "2. For ANY numerical calculation: ALWAYS call run_python. Never compute from memory.\n"
-    "   For dispersion relation: use brentq to solve omega^2 = g*k*tanh(k*h).\n"
-    "3. For plot/graph requests: ALWAYS call generate_plot.\n"
-    "4. For LaTeX requests: ALWAYS call latex_generator.\n"
-    "5. For uploaded PDFs or images: ALWAYS call read_document FIRST, then solve the problem.\n"
-    "6. Write equations in LaTeX: $...$ inline, $$...$$ display.\n\n"
-    "STEP-BY-STEP SOLUTION FORMAT:\n"
-    "### Step 1: Given Values\n"
-    "### Step 2: Relevant Equations\n"
-    "### Step 3: Solution Procedure (show formula, substitution, result)\n"
-    "### Step 4: Final Answer\n"
-)
-
-_llm = ChatVertexAI(
-    model=GEMINI_MODEL,
-    temperature=0.3,
-    max_output_tokens=8192,
+# Main LLM
+llm = ChatVertexAI(
+    model='gemini-2.5-flash',
+    temperature=0.3,           # Balanced for reasoning
+    max_output_tokens=4096,
     credentials=gcp_creds,
     project=GCP_PROJECT,
-    location=GCP_LOCATION,
+    location=GCP_LOCATION
 )
 
-_checkpointer = MemorySaver()
+# System prompt defining agent behavior
+SYSTEM_PROMPT = """
+You are an expert coastal hydrodynamics teaching assistant for a university course.
+You have access to full course textbooks and lecture slides via RAG retrieval.
 
-def _post_model_hook(state: dict) -> dict:
-    """Replace empty AI messages with sentinel to prevent checkpoint corruption."""
-    messages = state.get("messages", [])
-    if messages:
-        last = messages[-1]
-        if not last.content or not last.content.strip():
-            last.content = "(thinking)"
-    return state
+RULES:
+- ALWAYS call rag_search FIRST for course-related questions before answering
+- For math problems, use run_python with sympy/scipy — never answer from memory
+- For LaTeX output requests, use latex_generator
+- For plots or visualizations, use generate_plot
+- For uploaded PDFs or images, use read_document
+- Cite sources: include [Source: X] from RAG results in your answer
+- Write equations in LaTeX format: inline $...$ or display $$...$$
+- Show formula first, then compute, then state result clearly
+- Be concise and pedagogically accurate
+"""
 
-_agent = create_react_agent(
-    _llm, 
-    ALL_TOOLS, 
-    prompt=SYSTEM_PROMPT, 
-    checkpointer=_checkpointer,
-    post_model_hook=_post_model_hook,
+# Tool list
+tools = [
+    rag_search, 
+    run_python, 
+    latex_generator, 
+    generate_plot, 
+    read_document
+]
+
+# Create ReAct agent
+agent = create_react_agent(
+    llm,
+    tools,
+    prompt=SYSTEM_PROMPT
 )
-
-def run_agent(query: str, session_id: str = "default") -> dict:
-    """Run the agent on a query within a session.
-    Returns: {"text": str, "plots": list[str]}
-    """
-    config = {"configurable": {"thread_id": session_id}}
-    result = _agent.invoke({"messages": [("human", query)]}, config=config)
-    
-    # Extract response text and plot paths from messages
-    # ... (sanitization and extraction logic)
-    
-    return {"text": response_text, "plots": plots}
 ```
 
 ### 5.2 ReAct Workflow
@@ -1255,31 +1189,9 @@ coastal/
 │   ├── bm25_index.pkl              # BM25 keyword index
 │   ├── bm25_mapping.json           # Chunk ID mapping
 │   ├── chunks.json                 # Full chunk metadata
-│   ├── conversations.json          # Persisted conversation metadata
 │   └── parsed/                     # Markdown outputs
 │       ├── *.md
 │       └── *_images/
-├── api/                            # FastAPI Backend
-│   ├── main.py                     # FastAPI app entry point
-│   ├── requirements.txt            # Python dependencies
-│   ├── .env                        # Environment variables (GCP credentials)
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── config.py               # Central configuration
-│   │   ├── routes.py               # API route definitions
-│   │   ├── agent.py                # LangGraph ReAct agent
-│   │   ├── retrieval.py            # Hybrid search (ChromaDB + BM25)
-│   │   └── tools/
-│   │       ├── __init__.py         # Tool exports
-│   │       ├── rag.py              # RAG search tool
-│   │       ├── code_runner.py      # Python execution tool
-│   │       ├── latex.py            # LaTeX generation tool
-│   │       ├── plotter.py          # Plot generation tool
-│   │       └── document_reader.py  # PDF/image reader tool
-│   ├── static/
-│   │   └── index.html              # Single-page frontend
-│   ├── plots/                      # Generated plot images
-│   └── uploads/                    # User-uploaded files
 ├── materials/                      # Original PDFs
 │   ├── textbooks/
 │   │   ├── Coastal_Dynamics.pdf
@@ -1288,312 +1200,160 @@ coastal/
 │       ├── Topic_1_Wave_mechanics.pdf
 │       ├── Topic_2_Tidal_dynamics.pdf
 │       └── ...
-├── nbs/                            # Jupyter notebooks (parsing, experiments)
-├── Dockerfile                      # Docker deployment
-├── deploy.sh                       # Deployment script
+├── requirements.txt
 └── venv/
 ```
 
 ---
 
-## 7. API & Deployment Architecture
+## 7. Deployment Architecture
 
-### 7.1 Production Backend (FastAPI)
+### 7.1 Current State (Development)
 
-The system is deployed as a **FastAPI** REST API with a single-page HTML frontend.
+**Environment**: Jupyter Notebook  
+**Purpose**: Prototyping and testing
 
-**Entry Point**: `api/main.py`
-
-```python
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from app.routes import router
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    cleanup_old_plots()  # Remove stale plots on startup
-    yield
-
-app = FastAPI(title="Coastal Hydrodynamics Agent", version="1.0", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# API routes
-app.include_router(router)
-
-# Serve generated plots at /plots/<filename>
-app.mount("/plots", StaticFiles(directory="plots"), name="plots")
-
-# Serve frontend at / (index.html)
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+```
+coastal_agent.ipynb
+    ↓
+Execute cells sequentially
+    ↓
+Agent ready for interactive Q&A
 ```
 
-**Run Command**:
-```bash
-cd api
-uvicorn main:app --reload --port 8000
-```
+### 7.2 Production Deployment Plan
 
-### 7.2 API Endpoints
+**Backend**: FastAPI REST API  
+**Frontend**: Next.js (texpert/ directory)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `GET /health` | GET | Health check with collection stats |
-| `POST /chat` | POST | Main Q&A endpoint (text only) |
-| `POST /chat-with-file` | POST | Q&A with file upload (PDF/PNG/JPG) |
-| `GET /plots/{filename}` | GET | Retrieve generated plot image |
-| `DELETE /plots/{filename}` | DELETE | Delete a plot |
-| `POST /compile-latex` | POST | Compile LaTeX to PDF |
-| `GET /conversations` | GET | List all conversations |
-| `POST /conversations` | POST | Create new conversation |
-| `PATCH /conversations/{id}` | PATCH | Update conversation title |
-| `DELETE /conversations/{id}` | DELETE | Delete conversation |
-
-#### **Chat Endpoint**
+#### **Backend API Structure**
 
 ```python
-class ChatRequest(BaseModel):
-    message: str
-    session_id: Optional[str] = None  # auto-generated if omitted
+# main.py
+from fastapi import FastAPI, UploadFile
+from pydantic import BaseModel
 
-class ChatResponse(BaseModel):
-    text: str           # Agent's response with LaTeX math
-    plots: list[str]    # URLs to generated plot images
-    session_id: str     # Session ID for conversation continuity
+app = FastAPI()
 
-@router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
-    session_id = req.session_id or uuid.uuid4().hex
-    result = run_agent(req.message, session_id=session_id)
-    plot_urls = ["/plots/" + Path(p).name for p in result["plots"]]
-    return ChatResponse(text=result["text"], plots=plot_urls, session_id=session_id)
-```
+# Initialize agent (from coastal_agent.ipynb)
+from coastal_agent import agent, tools
 
-#### **File Upload Endpoint**
+class QueryRequest(BaseModel):
+    question: str
+    conversation_id: str
 
-```python
-@router.post("/chat-with-file", response_model=ChatResponse)
-async def chat_with_file(
-    message: str = Form(...),
-    file: UploadFile = File(...),
-    session_id: Optional[str] = Form(None),
-):
-    """Chat with an attached PDF or image (jpg/png/jpeg)."""
-    ext = Path(file.filename).suffix.lower()
-    if ext not in (".pdf", ".png", ".jpg", ".jpeg"):
-        raise HTTPException(status_code=400, detail="Only PDF/PNG/JPG supported.")
+class QueryResponse(BaseModel):
+    answer: str
+    sources: list[str]
+    images: list[str]
+
+@app.post("/api/query")
+async def query_agent(request: QueryRequest):
+    """Main Q&A endpoint"""
     
-    # Save file and pass to agent
-    save_path = UPLOADS_DIR / f"{uuid.uuid4().hex}{ext}"
-    save_path.write_bytes(await file.read())
+    # Invoke agent
+    result = agent.invoke({
+        "messages": [HumanMessage(content=request.question)],
+        "conversation_id": request.conversation_id
+    })
     
-    query = f"{message}\n\nFile available at: {save_path}"
-    result = run_agent(query, session_id=sid)
-    return ChatResponse(text=result["text"], plots=plot_urls, session_id=sid)
+    # Extract answer and sources
+    answer = result['messages'][-1].content
+    sources = extract_sources(result)
+    images = extract_images(result)
+    
+    return QueryResponse(
+        answer=answer,
+        sources=sources,
+        images=images
+    )
+
+@app.post("/api/upload")
+async def upload_document(file: UploadFile):
+    """Handle PDF/image uploads"""
+    
+    # Save file
+    file_path = f"uploads/{file.filename}"
+    with open(file_path, 'wb') as f:
+        f.write(await file.read())
+    
+    # Return path for read_document tool
+    return {"file_path": file_path}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "agent": "ready"}
 ```
 
-#### **LaTeX Compilation Endpoint**
+#### **Frontend Integration**
 
-```python
-@router.post("/compile-latex")
-def compile_latex_endpoint(req: LatexRequest):
-    """
-    Compile LaTeX source to PDF via latex.ytotech.com API.
-    Auto-selects pdflatex or xelatex based on detected packages.
-    """
-    pdf_bytes, error_msg = compile_latex(req.latex)
-    if pdf_bytes is None:
-        raise HTTPException(status_code=422, detail={"error": "LaTeX compilation failed."})
-    return Response(content=pdf_bytes, media_type="application/pdf")
+```typescript
+// app/api/chat/route.ts
+export async function POST(req: Request) {
+  const { question, conversationId } = await req.json();
+  
+  const response = await fetch('http://localhost:8000/api/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, conversation_id: conversationId })
+  });
+  
+  const data = await response.json();
+  return Response.json(data);
+}
 ```
 
-### 7.3 Configuration Management
-
-**File**: `api/app/config.py`
-
-```python
-# ── File paths ─────────────────────────────────────────────────
-PROJECT_ROOT  = Path(__file__).parent.parent.parent   # .../coastal/
-DATA_DIR      = PROJECT_ROOT / "data"
-CHROMA_DIR    = DATA_DIR / "chroma"
-BM25_FILE     = DATA_DIR / "bm25_index.pkl"
-BM25_MAP_FILE = DATA_DIR / "bm25_mapping.json"
-CHUNKS_FILE   = DATA_DIR / "chunks.json"
-PLOTS_DIR     = PROJECT_ROOT / "api" / "plots"
-UPLOADS_DIR   = PROJECT_ROOT / "api" / "uploads"
-
-# ── Load environment variables from .env ──────────────────────
-load_dotenv(PROJECT_ROOT / "api" / ".env")
-
-# ── GCP credentials ───────────────────────────────────────────
-GCP_PROJECT        = SA_KEY_DICT["project_id"]
-GCP_LOCATION       = os.getenv("GCP_LOCATION", "us-central1")
-GEMINI_MODEL       = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "text-embedding-004")
-CHROMA_COLLECTION  = os.getenv("CHROMA_COLLECTION", "coastal_chunks_v3")
-```
-
-### 7.4 Deployment Diagram
+#### **Deployment Diagram**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    User Browser                             │
-│          (Single-page HTML/JS/CSS frontend)                 │
-│  • Chat interface with markdown/LaTeX rendering             │
-│  • File upload (drag & drop)                               │
-│  • Conversation history sidebar                            │
+│                  (Next.js Frontend)                         │
 └──────────────────┬──────────────────────────────────────────┘
-                   │ HTTP REST API
+                   │ HTTP/WebSocket
                    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              FastAPI Backend (api/main.py)                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │          LangGraph ReAct Agent (agent.py)           │   │
-│  │          with MemorySaver session checkpointing     │   │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌────────┐ │   │
-│  │  │rag_search│ │run_python│ │latex_gen │ │gen_plot│ │   │
-│  │  └─────────┘  └─────────┘  └─────────┘  └────────┘ │   │
-│  │                    ┌─────────────┐                  │   │
-│  │                    │read_document│                  │   │
-│  │                    └─────────────┘                  │   │
-│  └─────────────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │          Hybrid Retrieval (retrieval.py)            │   │
-│  │     ChromaDB (semantic) + BM25 (keyword) + RRF      │   │
-│  └─────────────────────────────────────────────────────┘   │
+│                  FastAPI Backend                            │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │          LangGraph ReAct Agent                       │   │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌────────┐  │   │
+│  │  │   RAG   │  │ Python  │  │  LaTeX  │  │  Plot  │  │   │
+│  │  └─────────┘  └─────────┘  └─────────┘  └────────┘  │   │
+│  └──────────────────────────────────────────────────────┘   │
 └──────────────────┬──────────────────────────────────────────┘
                    │
                    ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              External Services                              │
 │  ┌──────────────────┐    ┌──────────────────┐              │
-│  │  Google Vertex   │    │ latex.ytotech.com│              │
-│  │  AI (Gemini)     │    │  (PDF compiler)  │              │
+│  │  Google Vertex   │    │   ChromaDB       │              │
+│  │  AI (Gemini)     │    │  Vector Store    │              │
 │  └──────────────────┘    └──────────────────┘              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 7.5 Dependencies
+### 7.3 Scalability Considerations
 
-**File**: `api/requirements.txt`
+**Stateless API**: Each request is independent (conversation state stored in DB)
 
-```
-# Web framework
-fastapi>=0.111
-uvicorn[standard]>=0.29
-python-multipart
-pydantic>=2
-requests>=2.31
+**Caching Strategy**:
+- Cache frequent RAG queries (Redis)
+- Pre-compute embeddings for common questions
+- Cache generated plots
 
-# LLM & Agent
-langgraph>=0.2
-langchain>=0.2
-langchain-google-vertexai>=1.0
-langchain-core>=0.2
+**Load Balancing**:
+- Multiple FastAPI workers (Gunicorn/Uvicorn)
+- Vertex AI handles LLM scaling automatically
 
-# GCP
-google-auth
-google-cloud-aiplatform>=1.38
-vertexai
-
-# Vector store & search
-chromadb==0.5.20
-rank-bm25==0.2.2
-nltk
-
-# Document processing & computation
-pymupdf
-numpy
-scipy
-sympy
-matplotlib
-```
+**Database**:
+- PostgreSQL for conversation history
+- ChromaDB for vector storage (local or hosted)
 
 ---
 
-## 8. Frontend Integration
+## 8. Key Innovations
 
-### 8.1 Single-Page Application
-
-The frontend is a **single HTML file** (`api/static/index.html`) that includes:
-
-- **Chat interface**: Message input with send button
-- **Conversation sidebar**: List of past conversations with create/rename/delete
-- **File upload**: Drag-and-drop or button-triggered PDF/image uploads
-- **LaTeX rendering**: Client-side KaTeX for mathematical equations
-- **Plot display**: Inline display of generated matplotlib plots
-- **PDF download**: Download compiled LaTeX documents
-
-### 8.2 Key Frontend Features
-
-| Feature | Implementation |
-|---------|----------------|
-| LaTeX Math | KaTeX library for `$...$` and `$$...$$` |
-| Markdown | Marked.js for text formatting |
-| Syntax Highlighting | highlight.js for code blocks |
-| File Upload | FormData with multipart/form-data |
-| Session Management | localStorage + server session_id |
-| Plot Images | `<img>` tags with `/plots/` URLs |
-
-### 8.3 API Communication
-
-```javascript
-// Chat request
-async function sendMessage(message, sessionId) {
-    const response = await fetch('/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, session_id: sessionId })
-    });
-    const data = await response.json();
-    // data.text contains response with LaTeX
-    // data.plots contains array of plot URLs
-    // data.session_id for session continuity
-    return data;
-}
-
-// Chat with file upload
-async function sendWithFile(message, file, sessionId) {
-    const formData = new FormData();
-    formData.append('message', message);
-    formData.append('file', file);
-    if (sessionId) formData.append('session_id', sessionId);
-    
-    const response = await fetch('/chat-with-file', {
-        method: 'POST',
-        body: formData
-    });
-    return await response.json();
-}
-
-// Compile LaTeX to PDF
-async function compileLatex(latexSource) {
-    const response = await fetch('/compile-latex', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ latex: latexSource })
-    });
-    if (response.ok) {
-        const blob = await response.blob();
-        // Download PDF
-        const url = URL.createObjectURL(blob);
-        window.open(url);
-    }
-}
-```
-
----
-
-## 9. Key Innovations
-
-### 9.1 Why This System is Effective
+### 8.1 Why This System is Effective
 
 1. **Domain-Specific Knowledge**: 
    - Trained on exact course materials (not generic web scraping)
@@ -1614,13 +1374,7 @@ async function compileLatex(latexSource) {
    - Explains steps (not just final answers)
    - Encourages understanding over memorization
 
-5. **Production-Ready Architecture**:
-   - FastAPI backend with proper error handling
-   - Session-based conversation memory
-   - Automatic plot cleanup (2-hour TTL)
-   - LaTeX compilation with automatic compiler selection
-
-### 9.2 Comparison to Alternatives
+### 8.2 Comparison to Alternatives
 
 | Feature | This System | Generic ChatGPT | Traditional LMS |
 |---------|-------------|-----------------|-----------------|
@@ -1631,20 +1385,19 @@ async function compileLatex(latexSource) {
 | Plot generation | ✅ | ❌ | ❌ |
 | Document uploads | ✅ | Partial | ❌ |
 | Conversational | ✅ | ✅ | ❌ |
-| PDF compilation | ✅ | ❌ | ❌ |
 
 ---
 
-## 10. Future Enhancements
+## 9. Future Enhancements
 
-### 10.1 Short-Term
+### 9.1 Short-Term (Next Sprint)
 
+- [ ] Add conversation history persistence
 - [ ] Implement user feedback loop (thumbs up/down on answers)
 - [ ] Create admin dashboard for monitoring retrieval quality
 - [ ] Add support for YouTube lecture transcripts
-- [ ] Streaming responses for better UX
 
-### 10.2 Long-Term (Roadmap)
+### 9.2 Long-Term (Roadmap)
 
 - [ ] Fine-tune Gemini on course-specific Q&A pairs
 - [ ] Integrate with Canvas/Moodle for assignment submission
@@ -1654,18 +1407,17 @@ async function compileLatex(latexSource) {
 
 ---
 
-## 11. References
+## 10. References
 
-### 11.1 Key Libraries
+### 10.1 Key Libraries
 
 - **LangChain**: https://python.langchain.com/
 - **LangGraph**: https://langchain-ai.github.io/langgraph/
 - **ChromaDB**: https://www.trychroma.com/
 - **marker-pdf**: https://github.com/VikParuchuri/marker
 - **InternVL2**: https://huggingface.co/OpenGVLab/InternVL2-2B
-- **FastAPI**: https://fastapi.tiangolo.com/
 
-### 11.2 Documentation
+### 10.2 Documentation
 
 - **Google Vertex AI**: https://cloud.google.com/vertex-ai/docs
 - **Gemini API**: https://ai.google.dev/docs
@@ -1673,50 +1425,82 @@ async function compileLatex(latexSource) {
 
 ---
 
-## Appendix A: Quick Start Guide
+## Appendix A: Complete Code Snippets
 
-### A.1 Running the Server
+### A.1 Full Agent Initialization
 
-```bash
-# Navigate to API directory
-cd api
+```python
+import vertexai
+from google.oauth2 import service_account
+from langchain_google_vertexai import ChatVertexAI
+from langgraph.prebuilt import create_react_agent
+from pathlib import Path
+import chromadb
 
-# Install dependencies
-pip install -r requirements.txt
+# ── GCP Authentication ──
+gcp_creds = service_account.Credentials.from_service_account_info(
+    SA_KEY_DICT,
+    scopes=['https://www.googleapis.com/auth/cloud-platform']
+)
+vertexai.init(project=GCP_PROJECT, location='us-central1', credentials=gcp_creds)
 
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your GCP credentials
+# ── Load Vector Store ──
+chroma_client = chromadb.PersistentClient(path='data/chroma')
+collection = chroma_client.get_collection('coastal_chunks_v3')
 
-# Run the server
-uvicorn main:app --reload --port 8000
+# ── Initialize LLM ──
+llm = ChatVertexAI(
+    model='gemini-2.5-flash',
+    temperature=0.3,
+    max_output_tokens=4096,
+    credentials=gcp_creds,
+    project=GCP_PROJECT,
+    location='us-central1'
+)
+
+# ── Define Tools ──
+tools = [rag_search, run_python, latex_generator, generate_plot, read_document]
+
+# ── Create Agent ──
+agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
+
+# ── Run Query ──
+result = agent.invoke({
+    "messages": [HumanMessage(content="Explain wave refraction")]
+})
+
+print(result['messages'][-1].content)
 ```
 
-### A.2 API Testing
+### A.2 Batch Query Script
 
-```bash
-# Health check
-curl http://localhost:8000/health
+```python
+# batch_test.py
+import json
+from tqdm import tqdm
 
-# Chat request
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What is wave celerity?"}'
+test_questions = [
+    "What is the dispersion relation for linear waves?",
+    "Calculate wave celerity for T=8s in 10m depth",
+    "Derive the wave energy equation",
+    "Plot wave height transformation over a 1:50 slope"
+]
 
-# Chat with file
-curl -X POST http://localhost:8000/chat-with-file \
-  -F "message=Solve this problem" \
-  -F "file=@homework.pdf"
-```
+results = []
+for question in tqdm(test_questions):
+    result = agent.invoke({
+        "messages": [HumanMessage(content=question)]
+    })
+    
+    results.append({
+        "question": question,
+        "answer": result['messages'][-1].content,
+        "tool_calls": [msg.name for msg in result['messages'] 
+                       if isinstance(msg, ToolMessage)]
+    })
 
-### A.3 Environment Variables (.env)
-
-```
-GCP_SA_KEY_PATH=service-account-key.json
-GCP_LOCATION=us-central1
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_EMBED_MODEL=text-embedding-004
-CHROMA_COLLECTION=coastal_chunks_v3
+with open('test_results.json', 'w') as f:
+    json.dump(results, f, indent=2)
 ```
 
 ---
@@ -1725,4 +1509,4 @@ CHROMA_COLLECTION=coastal_chunks_v3
 
 ---
 
-*This documentation provides a comprehensive overview suitable for creating a detailed presentation on the coastal hydrodynamics teaching assistant system. All code snippets are based on the actual implementation in the `api/` directory.*
+*This documentation provides a comprehensive overview suitable for creating a detailed presentation on the coastal hydrodynamics teaching assistant system. All code snippets are production-ready and based on the actual implementation in `parsing_notebook.ipynb` and `coastal_agent.ipynb`.*

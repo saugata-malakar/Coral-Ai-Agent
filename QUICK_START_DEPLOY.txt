@@ -1,0 +1,131 @@
+# ⚡ QUICK REFERENCE: DEPLOY IN 15 MINUTES
+
+## 🚀 5-STEP DEPLOYMENT
+
+### Step 1: Create HuggingFace Space (2 mins)
+```
+1. Go to https://huggingface.co/spaces
+2. Click "Create new Space"
+3. Name: coastal-ai-agent
+4. Type: Docker
+5. Visibility: Public
+6. Create Space
+```
+
+### Step 2: Clone & Prepare (3 mins)
+```bash
+# Clone the space
+git clone https://huggingface.co/spaces/YOU/coastal-ai-agent
+cd coastal-ai-agent
+
+# Copy all project files
+cp -r /path/to/Coral-Ai-Agent-main/* .
+
+# Create assets dir
+mkdir -p api/static/assets
+
+# Add professor photo (REQUIRED!)
+cp /path/to/prof-photo.jpg api/static/assets/
+```
+
+### Step 3: Push to HF (2 mins)
+```bash
+git add .
+git commit -m "Deploy Coastal AI v2.0 - OAuth, OTP, Thinking Modes, Prof Profile"
+git push
+```
+
+### Step 4: Add Secrets (5 mins)
+Go to **Space Settings** → **Secrets** → Add these 7 variables:
+
+```
+GOOGLE_CLIENT_ID = <your-value>
+GOOGLE_CLIENT_SECRET = <your-value>
+SENDGRID_API_KEY = <get-from-sendgrid-free>
+JWT_SECRET = <copy-from-.env>
+TAVILY_API_KEY = <copy-from-.env>
+GCP_PROJECT = <copy-from-.env>
+GCP_SA_KEY_PATH = <copy-from-.env>
+```
+
+### Step 5: Wait & Test (3 mins)
+- HF Spaces auto-builds (~10 minutes)
+- Check build logs
+- Once "App is running" → click link
+- Test: Signup → Verify Email → Chat
+
+---
+
+## 📝 SENDGRID SETUP (5 mins, Free)
+
+1. Go to https://sendgrid.com/
+2. Sign up (free tier: 100 emails/day)
+3. Verify sender email (can use any email)
+4. Settings → API Keys → Create API Key
+5. Copy API Key → Add to HF Secrets as `SENDGRID_API_KEY`
+
+---
+
+## ✅ VERIFICATION CHECKLIST
+
+After deployment, check:
+- [ ] Login page loads at `/auth.html`
+- [ ] Can signup with @kgpian.itkgp.ac.in email
+- [ ] OTP received in inbox (2-3 seconds)
+- [ ] Can verify email with OTP
+- [ ] Cannot chat until verified
+- [ ] "About" link shows professor profile
+- [ ] Thinking mode dropdown visible
+- [ ] Web search toggle visible
+- [ ] Can select different thinking modes
+- [ ] Logout works
+
+---
+
+## 🔑 YOUR DEPLOYMENT URL
+
+After deployment, your app will be live at:
+```
+https://huggingface.co/spaces/YOUR_USERNAME/coastal-ai-agent
+```
+
+---
+
+## 🆘 QUICK TROUBLESHOOTING
+
+| Issue | Solution |
+|-------|----------|
+| OTP not received | Check SENDGRID_API_KEY in secrets |
+| Google OAuth fails | Verify CLIENT_ID & SECRET are correct |
+| App doesn't start | Check Dockerfile and requirements.txt |
+| "Email not verified" error | This is correct! User must verify first |
+| Professor photo not showing | Add prof-photo.jpg to api/static/assets/ |
+
+---
+
+## 📦 WHAT'S DEPLOYED
+
+✅ Full authentication system (Email/Google/OTP)
+✅ Thinking mode selector (5 options)
+✅ Web search toggle
+✅ Professor Saud Afzal profile page
+✅ User learning system
+✅ Conversation history
+✅ LaTeX compilation
+✅ Plot generation
+✅ Citation tracking
+
+---
+
+## 🎯 SUCCESS = When You See
+
+1. ✅ "App is running" in HF Spaces
+2. ✅ Login page loads
+3. ✅ Signup works with OTP
+4. ✅ Can chat with thinking modes
+5. ✅ Professor profile loads
+6. ✅ All links work
+
+---
+
+**That's it! Your Coastal AI Agent is live! 🚀**

@@ -1,0 +1,209 @@
+🚀 MANUAL HF SPACES DEPLOYMENT - FASTEST METHOD
+================================================
+
+Total Time: 10 minutes (all copy-paste or drag-drop)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Create Space (1 min)
+─────────────────────────────
+
+1. Go to: https://huggingface.co/spaces?create=true
+
+2. Fill form:
+   Owner: saugata12
+   Space name: coastal-ai-agent
+   License: OpenRAIL
+   Space SDK: Docker ← IMPORTANT
+   Visibility: Public
+   
+3. Click "Create Space"
+
+4. Wait for page to load (30 seconds)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 2: Replace Dockerfile (1 min)
+──────────────────────────────────
+
+1. Click "Files" tab (top left)
+
+2. You should see a "Dockerfile" listed
+
+3. Click on it to open
+
+4. Delete ALL content (Ctrl+A, Delete)
+
+5. Copy this and paste:
+
+   ┌─────────────────────────────────────────────────────────────────┐
+   │ FROM python:3.11-slim                                           │
+   │ WORKDIR /app                                                    │
+   │ RUN apt-get update && apt-get install -y --no-install-recomm... │
+   │     build-essential curl && rm -rf /var/lib/apt/lists/*         │
+   │ COPY requirements.txt .                                         │
+   │ RUN pip install --no-cache-dir -r requirements.txt              │
+   │ COPY . .                                                        │
+   │ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=7860     │
+   │ EXPOSE 7860                                                     │
+   │ CMD ["python", "-m", "uvicorn", "main:app", "--host", ...     │
+   └─────────────────────────────────────────────────────────────────┘
+
+   👉 Copy from: HF_SPACES_DOCKERFILE.txt (in your folder)
+
+6. Click "Commit changes"
+
+7. Wait 10 seconds
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 3: Add requirements.txt (1 min)
+────────────────────────────────────
+
+1. Click "Add file" (at top)
+
+2. Select "Create a new file"
+
+3. Name: requirements.txt
+
+4. Copy content from: HF_SPACES_REQUIREMENTS.txt (in your folder)
+
+5. Paste it all
+
+6. Click "Commit new file"
+
+7. Wait 10 seconds
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 4: Add main.py (1 min)
+───────────────────────────
+
+1. Download main.py from GitHub:
+   https://github.com/ShehryaarO-O/Coral-Ai-Agent/raw/main/Coral-Ai-Agent-main/api/main_unified.py
+
+2. Rename it to: main.py
+
+3. In HF Spaces, click "Add file" → "Create a new file"
+
+4. Name: main.py
+
+5. Copy entire content of downloaded file and paste
+
+6. Click "Commit new file"
+
+7. Wait 10 seconds
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 5: Add Secrets (2 min)
+──────────────────────────
+
+1. Click "Settings" (top right button)
+
+2. Scroll to "Repository secrets"
+
+3. Add these 8 secrets (click "Add secret" each time):
+
+   Name: JWT_SECRET
+   Value: 024737b37c9e4c8ac50fc3a338886e208a5f07e1585e8763ead1df958f830d7c
+   [Add secret]
+
+   Name: TAVILY_API_KEY
+   Value: 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
+   [Add secret]
+
+   Name: GOOGLE_CLIENT_ID
+   Value: 685487767318-i8aeagcuh4lacogej3iq7b97141rg20m.apps.googleusercontent.com
+   [Add secret]
+
+   Name: GOOGLE_CLIENT_SECRET
+   Value: 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
+   [Add secret]
+
+   Name: GEMINI_MODEL
+   Value: gemini-2.5-flash
+   [Add secret]
+
+   Name: GEMINI_EMBED_MODEL
+   Value: text-embedding-004
+   [Add secret]
+
+   Name: GCP_LOCATION
+   Value: us-central1
+   [Add secret]
+
+   Name: CHROMA_COLLECTION
+   Value: coastal_chunks_v3
+   [Add secret]
+
+4. Go back to main space page
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 6: Upload Static Files (2 min)
+───────────────────────────────────
+
+1. Click "Files" tab
+
+2. Click "Add file" → "Upload files"
+
+3. Navigate to your computer:
+   C:\Users\trina\Downloads\Coral-Ai-Agent-main Coastal Mini Project\Coral-Ai-Agent-main\api\static\
+
+4. Select all files (Ctrl+A)
+
+5. Drag-drop or click to upload
+
+6. Wait for upload complete
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 7: Wait for Build & Deploy (3-5 min)
+──────────────────────────────────────────
+
+1. Click "App" tab (next to Files)
+
+2. Watch the building status
+
+3. When you see ✅ "SUCCEEDED" in green:
+   Your app is LIVE!
+
+4. Click the URL at top to visit your app!
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎉 YOUR FINAL URL:
+
+https://huggingface.co/spaces/saugata12/coastal-ai-agent
+
+═══════════════════════════════════════════════════════════════════════════════
+
+TROUBLESHOOTING:
+
+❌ Build fails after 2 min:
+   → Check requirements.txt (copy from provided file exactly)
+   → Check main.py is named correctly (case sensitive)
+
+❌ Takes 10+ min to build:
+   → This is normal first time! HF Spaces can be slow
+   → Wait patiently
+
+❌ Deployment error "Port already in use":
+   → Delete space, create new one
+
+✅ SUCCESS when:
+   → Page loads without errors
+   → You see "Coastal AI Agent" title
+   → Chat box appears
+   → You can type questions
+
+
+YOU'VE GOT THIS! 🚀
