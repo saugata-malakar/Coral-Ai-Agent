@@ -1,0 +1,9 @@
+{
+  "answer_id": "39f4cbe0-1913-409c-aaec-68725bc1aa13",
+  "timestamp": "2026-07-06T17:34:47.479405",
+  "question": "give in text\n\nFile available at: C:\\Users\\trina\\.gemini\\antigravity\\scratch\\Coral-Ai-Agent\\api\\uploads\\936f85f41f874bc3ab19c37e3d550510.pdf",
+  "answer_text": "I apologize, but I encountered an error when trying to read the PDF file. The necessary library (`PyMuPDF`) is not installed in my environment, which prevents me from extracting text from the document.\n\nTherefore, I cannot provide the content of the PDF \"in text\" at this moment. Please ensure that the environment has `PyMuPDF` installed if you wish for me to read PDF documents.",
+  "citations": [],
+  "thinking_mode": "standard",
+  "user_id": null
+}
