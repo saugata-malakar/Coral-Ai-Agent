@@ -299,5 +299,11 @@ def validate_token(token: str):
     return {"valid": True, "user_id": payload.get("user_id")}
 
 
+@router.get("/google-client-id")
+def get_google_client_id():
+    """Get the configured Google Client ID for OAuth."""
+    return {"client_id": GOOGLE_CLIENT_ID}
+
+
 # Add datetime import
 from datetime import datetime

@@ -507,9 +507,7 @@
 
         <div class="divider">OR</div>
 
-        <button class="google-btn" onclick="handleGoogleLogin()">
-          <span class="google-icon">🔵</span> Continue with Google
-        </button>
+        <div id="google-signin-btn" style="width: 100%; display: flex; justify-content: center; margin: 10px 0;"></div>
 
         <div class="form-link">
           Don't have an account? <a onclick="switchToSignup()">Sign up</a>
@@ -658,8 +656,8 @@
       return;
     }
 
-    if (!email.endsWith('@kgpian.itkgp.ac.in') && !email.endsWith('@kgpian.iitkgp.ac.in') && email !== 'admin@test.com') {
-      errorDiv.textContent = 'Only IIT KGP email (@kgpian.iitkgp.ac.in or @kgpian.itkgp.ac.in) allowed';
+    if (!email.endsWith('@kgpian.itkgp.ac.in') && !email.endsWith('@kgpian.iitkgp.ac.in') && !email.endsWith('@gmail.com') && email !== 'admin@test.com') {
+      errorDiv.textContent = 'Only IIT KGP email (@kgpian.iitkgp.ac.in or @kgpian.itkgp.ac.in) or Gmail allowed';
       errorDiv.classList.remove('hidden');
       return;
     }
@@ -734,9 +732,59 @@
   }
 
   // ── Google OAuth Handler ────────────────────────────────────────────
-  function handleGoogleLogin() {
-    alert('Google OAuth integration requires configuration. Please contact admin.');
-    // In production, implement Google Sign-In callback
+  async function initializeGoogleSignIn() {
+    try {
+      const res = await fetch('/auth/google-client-id');
+      const data = await res.json();
+      const clientId = data.client_id;
+      
+      if (!clientId) {
+        console.warn('Google Client ID not configured in backend');
+        return;
+      }
+      
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse
+      });
+      
+      google.accounts.id.renderButton(
+        document.getElementById("google-signin-btn"),
+        { theme: "filled_blue", size: "large", width: 280, shape: "pill" }
+      );
+    } catch (err) {
+      console.error('Failed to initialize Google Sign-In:', err);
+    }
+  }
+
+  async function handleGoogleCredentialResponse(response) {
+    const errorDiv = document.getElementById('login-error');
+    errorDiv.classList.add('hidden');
+    
+    try {
+      const res = await fetch('/auth/google-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_token: response.credential,
+          access_token: ""
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Google authentication failed');
+      }
+
+      const data = await res.json();
+      localStorage.setItem('auth_token', data.access_token);
+      localStorage.setItem('user_email', data.user.email);
+      
+      window.location.href = '/';
+    } catch (err) {
+      errorDiv.textContent = err.message;
+      errorDiv.classList.remove('hidden');
+    }
   }
 
   // ── Check if Already Logged In ─────────────────────────────────────
@@ -744,6 +792,8 @@
     const token = localStorage.getItem('auth_token');
     if (token) {
       window.location.href = '/';
+    } else {
+      initializeGoogleSignIn();
     }
   });
 </script>

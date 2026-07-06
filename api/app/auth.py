@@ -18,7 +18,7 @@ import requests
 
 
 # ── Configuration ───────────────────────────────────────────────────────────
-ALLOWED_DOMAINS = ["@kgpian.itkgp.ac.in", "@kgpian.iitkgp.ac.in"]
+ALLOWED_DOMAINS = ["@kgpian.itkgp.ac.in", "@kgpian.iitkgp.ac.in", "@gmail.com"]
 # Demo emails that bypass domain restriction
 DEMO_EMAILS = {"admin@test.com"}
 JWT_SECRET = os.getenv("JWT_SECRET", "coastal-hydrodynamics-secret-key-change-in-production")
@@ -174,7 +174,7 @@ def verify_google_token(id_token: str, google_client_id: str) -> dict:
         # Check if email is from IIT KGP domain
         email = idinfo.get("email", "")
         if not is_valid_iit_kgp_email(email):
-            return {"error": f"Email domain not allowed. Only {ALLOWED_DOMAIN} emails accepted."}
+            return {"error": f"Email domain not allowed. Only {', '.join(ALLOWED_DOMAINS)} emails accepted."}
         
         return idinfo
     except Exception as e:
