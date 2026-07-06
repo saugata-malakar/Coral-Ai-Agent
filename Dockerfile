@@ -21,10 +21,10 @@ COPY api/ ./api/
 COPY data/ ./data/
 
 # Copy service account key
-COPY project-69cd4571-9df8-49d0-93d-880b46389b4b.json ./project-69cd4571-9df8-49d0-93d-880b46389b4b.json
+COPY true-shoreline-447519-g7.json ./true-shoreline-447519-g7.json
 
 # Write .env for the app
-RUN echo "GCP_SA_KEY_PATH=../project-69cd4571-9df8-49d0-93d-880b46389b4b.json" > ./api/.env && \
+RUN echo "GCP_SA_KEY_PATH=../true-shoreline-447519-g7.json" > ./api/.env && \
     echo "GCP_LOCATION=us-central1" >> ./api/.env && \
     echo "GEMINI_MODEL=gemini-2.5-flash" >> ./api/.env && \
     echo "GEMINI_EMBED_MODEL=text-embedding-004" >> ./api/.env && \
