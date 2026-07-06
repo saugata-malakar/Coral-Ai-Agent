@@ -22,7 +22,7 @@
 ✅ Ready for Deployment
    - Username verified: saugata12 ✅
    - HF token obtained: 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 ✅
-   - GitHub repo clean: ShehryaarO-O/Coral-Ai-Agent ✅
+   - GitHub repo clean: saugata-malakar/Coral-Ai-Agent ✅
 
 ═══════════════════════════════════════════════════════════════════════════════
 

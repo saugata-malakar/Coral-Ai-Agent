@@ -4,9 +4,9 @@ Welcome to the **Coastal Hydrodynamics AI Teaching Assistant**, an advanced RAG-
 
 ## 🚀 Live Educational Platform
 
-The application is successfully deployed and accessible via Google Cloud Run. Students and educators can access the live educational interface here:
+The application is successfully deployed and accessible via Render. Students and educators can access the live educational interface here:
 
-**🌐 Website URL:** [https://coastal-agent-340217722521.us-central1.run.app](https://coastal-agent-340217722521.us-central1.run.app)
+**🌐 Website URL:** [https://coral-ai-agent.onrender.com](https://coral-ai-agent.onrender.com)
 
 ### 🔐 Demo Credentials
 

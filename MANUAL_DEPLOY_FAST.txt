@@ -83,7 +83,7 @@ STEP 4: Add main.py (1 min)
 ───────────────────────────
 
 1. Download main.py from GitHub:
-   https://github.com/ShehryaarO-O/Coral-Ai-Agent/raw/main/Coral-Ai-Agent-main/api/main_unified.py
+   https://github.com/saugata-malakar/Coral-Ai-Agent/raw/main/Coral-Ai-Agent-main/api/main_unified.py
 
 2. Rename it to: main.py
 
