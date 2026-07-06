@@ -95,7 +95,7 @@ def signup(req: SignupRequest):
     if not is_valid_iit_kgp_email(req.email):
         raise HTTPException(
             status_code=400,
-            detail="Only IIT KGP email (@kgpian.itkgp.ac.in) allowed"
+            detail="Only IIT KGP email (@kgpian.iitkgp.ac.in or @kgpian.itkgp.ac.in) or demo accounts allowed"
         )
     
     if len(req.password) < 8:

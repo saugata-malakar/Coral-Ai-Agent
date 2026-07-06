@@ -260,7 +260,7 @@ class SymbolicCoastalMath:
         }
     
     @staticmethod
-    def dimen sional_analysis(L_dim=None, T_dim=None, M_dim=None):
+    def dimensional_analysis(L_dim=None, T_dim=None, M_dim=None):
         """
         Dimensional analysis using Buckingham Pi theorem.
         Returns dimensionless groups for coastal quantities.

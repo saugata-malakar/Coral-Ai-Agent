@@ -22,3 +22,9 @@ data/chroma/
 data/embeddings.npy
 data/bm25_index.pkl
 data/conversations.json
+
+# Virtual Environments
+venv/
+api/venv/
+.venv/
+api/.venv/

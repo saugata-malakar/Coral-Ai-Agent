@@ -7,11 +7,21 @@ import os
 import sys as _sys
 from pathlib import Path
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*a, **kw):
+        pass
 
 # ── File paths ────────────────────────────────────────────────────────────────
 PROJECT_ROOT  = Path(__file__).parent.parent   # /app in container, .../api locally
-DATA_DIR      = PROJECT_ROOT / "data"
+
+# Data directory: try ../data first (local dev), then ./data (container)
+DATA_DIR = PROJECT_ROOT.parent / "data"
+if not DATA_DIR.exists():
+    DATA_DIR = PROJECT_ROOT / "data"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 CHROMA_DIR    = DATA_DIR / "chroma"
 BM25_FILE     = DATA_DIR / "bm25_index.pkl"
 BM25_MAP_FILE = DATA_DIR / "bm25_mapping.json"
@@ -36,9 +46,12 @@ if _sa_key_path:
     _api_dir = PROJECT_ROOT
     _sa_key_resolved = (_api_dir / _sa_key_path).resolve()
     if _sa_key_resolved.exists():
-        with open(_sa_key_resolved, encoding="utf-8") as _f:
-            SA_KEY_DICT = json.load(_f)
-            GCP_PROJECT = SA_KEY_DICT.get("project_id", "coastal-ai")
+        try:
+            with open(_sa_key_resolved, encoding="utf-8") as _f:
+                SA_KEY_DICT = json.load(_f)
+                GCP_PROJECT = SA_KEY_DICT.get("project_id", "coastal-ai")
+        except Exception as _e:
+            print(f"[config] Warning: Could not load GCP credentials from {_sa_key_resolved}: {_e}")
     else:
         # In container, use env var if available
         GCP_PROJECT = os.getenv("GCP_PROJECT", "coastal-ai")

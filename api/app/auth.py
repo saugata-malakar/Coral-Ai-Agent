@@ -18,7 +18,9 @@ import requests
 
 
 # ── Configuration ───────────────────────────────────────────────────────────
-ALLOWED_DOMAIN = "@kgpian.itkgp.ac.in"
+ALLOWED_DOMAINS = ["@kgpian.itkgp.ac.in", "@kgpian.iitkgp.ac.in"]
+# Demo emails that bypass domain restriction
+DEMO_EMAILS = {"admin@test.com"}
 JWT_SECRET = os.getenv("JWT_SECRET", "coastal-hydrodynamics-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
@@ -82,15 +84,22 @@ class TokenResponse(BaseModel):
 
 
 # ── Password Management ──────────────────────────────────────────────────────
+import bcrypt
 
 def hash_password(password: str) -> str:
     """Hash password using bcrypt."""
-    return pwd_context.hash(password)
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password against hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
 
 
 def generate_reset_token() -> str:
@@ -127,8 +136,9 @@ def verify_access_token(token: str) -> dict:
 # ── Domain Validation ────────────────────────────────────────────────────────
 
 def is_valid_iit_kgp_email(email: str) -> bool:
-    """Check if email is from IIT KGP domain."""
-    return email.lower().endswith(ALLOWED_DOMAIN)
+    """Check if email is from IIT KGP domain or is a demo email."""
+    email_lower = email.lower()
+    return any(email_lower.endswith(dom) for dom in ALLOWED_DOMAINS) or email_lower in DEMO_EMAILS
 
 
 def extract_roll_number_from_email(email: str) -> Optional[str]:
@@ -197,7 +207,7 @@ class UserDatabase:
             raise ValueError(f"User with email {email} already exists")
         
         if not is_valid_iit_kgp_email(email):
-            raise ValueError(f"Email must be from {ALLOWED_DOMAIN} domain")
+            raise ValueError(f"Email must be from {ALLOWED_DOMAINS[0]} domain or a demo account")
         
         user = User(
             user_id=self._generate_user_id(),

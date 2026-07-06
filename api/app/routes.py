@@ -113,8 +113,8 @@ class ConversationPatch(BaseModel):
 def health():
     return {
         "status": "ok",
-        "collection": collection.name,
-        "chunks": collection.count(),
+        "collection": collection.name if collection else "unavailable",
+        "chunks": collection.count() if collection else 0,
     }
 
 

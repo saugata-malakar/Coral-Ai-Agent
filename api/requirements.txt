@@ -8,6 +8,7 @@ langgraph>=0.2
 langchain>=0.2
 langchain-google-vertexai>=1.0
 langchain-core>=0.2
+langchain-community>=0.2
 
 google-auth
 google-cloud-aiplatform>=1.38
@@ -29,3 +30,9 @@ pyjwt>=2.8
 passlib[bcrypt]>=1.7.4
 email-validator>=2.0
 python-multipart>=0.0.6
+
+# Previously missing dependencies
+python-dotenv>=1.0
+chromadb>=0.4
+nltk>=3.8
+rank-bm25>=0.2.2

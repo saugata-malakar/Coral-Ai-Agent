@@ -1,31 +1,37 @@
 import base64
 from pathlib import Path
 
-import fitz  # PyMuPDF
-from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
-from langchain_google_vertexai import ChatVertexAI
 
-from ..config import GEMINI_MODEL, GCP_LOCATION, GCP_PROJECT
-from ..retrieval import gcp_creds
 
-_vision_llm = ChatVertexAI(
-    model=GEMINI_MODEL,
-    temperature=0.2,
-    max_output_tokens=4096,
-    credentials=gcp_creds,
-    project=GCP_PROJECT,
-    location=GCP_LOCATION,
-)
+def _get_vision_llm():
+    """Lazy-load the vision LLM."""
+    from ..retrieval import gcp_creds, _HAS_GCP
+    if not _HAS_GCP or not gcp_creds:
+        return None
+    from langchain_google_vertexai import ChatVertexAI
+    from ..config import GEMINI_MODEL, GCP_LOCATION, GCP_PROJECT
+    return ChatVertexAI(
+        model=GEMINI_MODEL,
+        temperature=0.2,
+        max_output_tokens=4096,
+        credentials=gcp_creds,
+        project=GCP_PROJECT,
+        location=GCP_LOCATION,
+    )
 
 
 def _gemini_vision(image_bytes: bytes, mime: str, question: str) -> str:
+    llm = _get_vision_llm()
+    if llm is None:
+        return "ERROR: Vision analysis requires GCP credentials. Configure them in api/.env"
+    from langchain_core.messages import HumanMessage
     b64 = base64.b64encode(image_bytes).decode()
     msg = HumanMessage(content=[
         {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
         {"type": "text", "text": "You are a coastal hydrodynamics expert. " + question},
     ])
-    return _vision_llm.invoke([msg]).content
+    return llm.invoke([msg]).content
 
 
 @tool
@@ -44,6 +50,11 @@ def read_document(file_path: str, question: str, pages: str = "all") -> str:
         return _gemini_vision(p.read_bytes(), mime, question)
 
     if ext == ".pdf":
+        try:
+            import fitz  # PyMuPDF
+        except ImportError:
+            return "ERROR: PyMuPDF (fitz) not installed. Run: pip install pymupdf"
+
         doc = fitz.open(str(p))
         total = len(doc)
 

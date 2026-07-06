@@ -16,8 +16,8 @@ from ..config import PLOTS_DIR
 
 # Pre-import heavy modules ONCE at server startup (not per-request)
 import numpy as np
-from scipy.optimize import brentq, fsolve, minimize_scalar, odeint
-from scipy.integrate import quad, simpson
+from scipy.optimize import brentq, fsolve, minimize_scalar
+from scipy.integrate import quad, simpson, odeint
 from scipy.interpolate import interp1d
 import matplotlib
 matplotlib.use("Agg")

@@ -1,20 +1,19 @@
 """
 LangGraph ReAct agent assembly and response runner.
+Gracefully degrades if GCP credentials are not available.
 """
+import logging
 import re
 import uuid
 from pathlib import Path
 
-from langchain_google_vertexai import ChatVertexAI
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import create_react_agent
-
 from .config import GEMINI_MODEL, GCP_LOCATION, GCP_PROJECT, DATA_DIR
-from .retrieval import gcp_creds
-from .tools import ALL_TOOLS, get_enhanced_tools
+from .retrieval import gcp_creds, hybrid_search, _HAS_GCP
 from .tools.thinking_modes import get_thinking_mode_system_prompt
 from .tools.user_profile import UserProfileManager
-from .tools.resource_tracker import ResourceTracker, extract_sources_from_retrieval
+from .tools.resource_tracker import ResourceTracker
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are an EXPERT COASTAL HYDRODYNAMICS teaching assistant for university coursework.\n"
@@ -121,14 +120,6 @@ def build_enhanced_system_prompt(
 ) -> str:
     """
     Build system prompt with thinking mode and feature enhancements.
-    
-    Args:
-        thinking_mode: The thinking mode to use
-        enable_web_search: Whether to enable web search
-        user_profile_info: User profile context information
-        
-    Returns:
-        Enhanced system prompt
     """
     prompt = SYSTEM_PROMPT
     
@@ -156,15 +147,43 @@ def build_enhanced_system_prompt(
 # ── Sentinel used to replace empty Gemini responses ───────────────────────────
 _SENTINEL = "(thinking)"
 
+# ── LLM and Agent initialization ─────────────────────────────────────────────
+_llm = None
+_checkpointer = None
+_agent = None
+_enhanced_agent = None
+_AGENT_AVAILABLE = False
+
+# Initialize managers
+_user_profile_manager = UserProfileManager(DATA_DIR)
+_resource_tracker = ResourceTracker(DATA_DIR)
+
+if _HAS_GCP and gcp_creds:
+    try:
+        from langchain_google_vertexai import ChatVertexAI
+        from langgraph.checkpoint.memory import MemorySaver
+        from langgraph.prebuilt import create_react_agent
+        from .tools import ALL_TOOLS, get_enhanced_tools
+
+        _llm = ChatVertexAI(
+            model=GEMINI_MODEL,
+            temperature=0.3,
+            max_output_tokens=8192,
+            credentials=gcp_creds,
+            project=GCP_PROJECT,
+            location=GCP_LOCATION,
+        )
+        _checkpointer = MemorySaver()
+        _AGENT_AVAILABLE = True
+        logger.info("LangGraph agent initialized with Vertex AI")
+    except Exception as e:
+        logger.warning(f"Failed to initialize LLM: {e}")
+else:
+    logger.info("GCP credentials not available — agent will use fallback mode")
+
 
 def _guard_empty_response(response):
-    """Intercept Gemini responses before they enter LangGraph state.
-
-    gemini-2.5-flash sometimes returns empty content after tool calls.
-    Empty AI messages stored in MemorySaver cause the NEXT request to fail
-    with Vertex AI 400 'parts must not be empty'. Replacing with a sentinel
-    keeps the checkpoint valid while still marking the message as non-content.
-    """
+    """Intercept Gemini responses before they enter LangGraph state."""
     content = response.content
     is_empty = (
         not content
@@ -190,20 +209,8 @@ def _guard_empty_response(response):
     return response
 
 
-_llm = ChatVertexAI(
-    model=GEMINI_MODEL,
-    temperature=0.3,
-    max_output_tokens=8192,
-    credentials=gcp_creds,
-    project=GCP_PROJECT,
-    location=GCP_LOCATION,
-)
-
-
 def _post_model_hook(state: dict) -> dict:
-    """post_model_hook: runs after each LLM call inside the ReAct graph.
-    Replaces empty AI messages with sentinel so MemorySaver never stores empty parts.
-    """
+    """post_model_hook: runs after each LLM call inside the ReAct graph."""
     messages = state.get("messages", [])
     if not messages:
         return state
@@ -212,22 +219,19 @@ def _post_model_hook(state: dict) -> dict:
     return {"messages": [*messages[:-1], last]}
 
 
-_checkpointer = MemorySaver()
-_agent = None
-_enhanced_agent = None
-
-# Initialize managers
-_user_profile_manager = UserProfileManager(DATA_DIR)
-_resource_tracker = ResourceTracker(DATA_DIR)
-
-
 def _get_agent(use_enhanced_tools: bool = False):
     """Get the agent, optionally with enhanced tools."""
     global _agent, _enhanced_agent
-    
+
+    if not _AGENT_AVAILABLE:
+        return None
+
+    from langgraph.prebuilt import create_react_agent
+    from .tools import ALL_TOOLS, get_enhanced_tools as _get_enhanced
+
     if use_enhanced_tools:
         if _enhanced_agent is None:
-            tools = get_enhanced_tools()
+            tools = _get_enhanced()
             _enhanced_agent = create_react_agent(
                 _llm, tools, prompt=SYSTEM_PROMPT, checkpointer=_checkpointer,
                 post_model_hook=_post_model_hook,
@@ -300,6 +304,8 @@ def _text_blocks_only(msg) -> str:
 
 def _clear_session(session_id: str) -> None:
     """Wipe a corrupted MemorySaver thread so the next request starts clean."""
+    if _checkpointer is None:
+        return
     try:
         storage = _checkpointer.storage
         keys_to_delete = [k for k in storage if session_id in str(k)]
@@ -307,6 +313,48 @@ def _clear_session(session_id: str) -> None:
             del storage[k]
     except Exception:
         pass
+
+
+def _fallback_response(query: str) -> dict:
+    """
+    Provide a response when the LLM agent is not available.
+    Uses RAG search to find relevant content and returns it directly.
+    """
+    # Try to find relevant content from the knowledge base
+    results = hybrid_search(query, k=5)
+    relevant_texts = [r["text"] for r in results if r.get("text", "").strip()]
+
+    if relevant_texts:
+        response = (
+            "⚠️ **AI Agent Running in Offline Mode** (No GCP credentials configured)\n\n"
+            "I found these relevant passages from the course materials:\n\n"
+        )
+        for i, text in enumerate(relevant_texts[:3], 1):
+            # Truncate long texts
+            excerpt = text[:500] + "..." if len(text) > 500 else text
+            response += f"---\n\n**Source {i}:**\n{excerpt}\n\n"
+        response += (
+            "\n---\n\n"
+            "💡 *To enable full AI-powered responses with step-by-step solutions, "
+            "configure your GCP Vertex AI credentials in `api/.env`.*"
+        )
+    else:
+        response = (
+            "⚠️ **AI Agent Running in Offline Mode**\n\n"
+            "The AI chat requires Google Cloud Vertex AI credentials to generate responses. "
+            "To enable full functionality:\n\n"
+            "1. Create a GCP service account with Vertex AI access\n"
+            "2. Download the JSON key file\n"
+            "3. Set `GCP_SA_KEY_PATH=path/to/key.json` in `api/.env`\n\n"
+            "The rest of the application (auth, conversations, UI) works fully without credentials."
+        )
+
+    return {
+        "text": response,
+        "plots": [],
+        "answer_id": None,
+        "citations": None,
+    }
 
 
 def run_agent(
@@ -317,23 +365,12 @@ def run_agent(
     enable_web_search: bool = False,
     enable_resource_citations: bool = True
 ) -> dict:
-    """Run the agent on a query within a session.
-    
-    Args:
-        query: The user's query
-        session_id: Session identifier for conversation history
-        user_id: Optional user ID for personalization
-        thinking_mode: Thinking mode to use (standard, deep, critical, analytical, comprehensive)
-        enable_web_search: Whether to enable web search capability
-        enable_resource_citations: Whether to include resource citations
-    
-    Returns:
-        dict with keys:
-        - text: final response string
-        - plots: list of absolute plot file paths generated this turn
-        - answer_id: ID of stored answer (if citations enabled)
-        - citations: list of source citations (if citations enabled)
-    """
+    """Run the agent on a query within a session."""
+
+    # If agent is not available, use fallback
+    if not _AGENT_AVAILABLE:
+        return _fallback_response(query)
+
     # Build personalized system prompt
     user_profile_info = ""
     if user_id:
@@ -351,6 +388,9 @@ def run_agent(
     # Create the agent with appropriate tools
     use_enhanced = enable_web_search or thinking_mode != "standard"
     agent = _get_agent(use_enhanced_tools=use_enhanced)
+
+    if agent is None:
+        return _fallback_response(query)
     
     config = {"configurable": {"thread_id": session_id}}
 
@@ -358,15 +398,16 @@ def run_agent(
         result = agent.invoke(
             {"messages": [("human", query)]},
             config=config,
-            # Pass custom system prompt
-            system_prompt=system_prompt if thinking_mode != "standard" or enable_web_search else None
         )
     except Exception as exc:
         err = str(exc)
         if "parts" in err.lower() or "400" in err:
             # Corrupted checkpoint — wipe session and retry once clean
             _clear_session(session_id)
-            result = agent.invoke({"messages": [("human", query)]}, config=config)
+            try:
+                result = agent.invoke({"messages": [("human", query)]}, config=config)
+            except Exception as e2:
+                return _fallback_response(query)
         else:
             raise
 
@@ -381,8 +422,7 @@ def run_agent(
 
     turn_msgs = messages[last_human_idx + 1:]
 
-    # Pull clean LaTeX documents from tool messages (avoids double-escaped backslashes
-    # that appear when the agent re-quotes tool output in its prose)
+    # Pull clean LaTeX documents from tool messages
     latex_from_tools: list[str] = []
     for msg in turn_msgs:
         role = getattr(msg, "type", "") or getattr(msg, "role", "")
@@ -392,8 +432,6 @@ def run_agent(
                 latex_from_tools.append(match.group(1).strip())
 
     # ── Collect all AI text from this turn ───────────────────────────────────
-    # Agent interleaves tool calls with partial text (Steps 1-2, tool, Step 3...).
-    # Gather ALL AI messages in order; skip pre-tool planning messages only.
     first_tool_idx = -1
     for i, msg in enumerate(turn_msgs):
         if (getattr(msg, "type", "") or getattr(msg, "role", "")) == "tool":
@@ -417,8 +455,6 @@ def run_agent(
     response_text = "\n\n".join(response_parts)
 
     # ── Always synthesize final answer from tool outputs if agent was silent ──
-    # Gemini 2.5-flash sometimes produces no final text after tool calls.
-    # Whenever that happens, pass all tool outputs to a fresh LLM call.
     if not response_text and first_tool_idx >= 0:
         tool_texts = []
         for msg in turn_msgs:
@@ -476,14 +512,6 @@ def run_agent(
     citations = []
     if enable_resource_citations:
         answer_id = str(uuid.uuid4())
-        # Extract citations from tool results
-        for msg in turn_msgs:
-            if (getattr(msg, "type", "") or getattr(msg, "role", "")) == "tool":
-                tool_content = _extract_text(msg.content)
-                # Basic extraction - can be improved
-                if "web_search" in str(msg):
-                    citations.extend(extract_sources_from_web_search(tool_content))
-        
         # Save answer with citations
         _resource_tracker.save_answer_with_citations(
             question=query,
@@ -500,7 +528,7 @@ def run_agent(
             user_id=user_id,
             question=query,
             thinking_mode=thinking_mode,
-            topic_tags=[],  # Could be extracted from query
+            topic_tags=[],
             answer_length=len(response_text)
         )
 

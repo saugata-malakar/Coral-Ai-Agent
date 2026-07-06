@@ -658,8 +658,8 @@
       return;
     }
 
-    if (!email.endsWith('@kgpian.itkgp.ac.in')) {
-      errorDiv.textContent = 'Only IIT KGP email (@kgpian.itkgp.ac.in) allowed';
+    if (!email.endsWith('@kgpian.itkgp.ac.in') && !email.endsWith('@kgpian.iitkgp.ac.in') && email !== 'admin@test.com') {
+      errorDiv.textContent = 'Only IIT KGP email (@kgpian.iitkgp.ac.in or @kgpian.itkgp.ac.in) allowed';
       errorDiv.classList.remove('hidden');
       return;
     }

@@ -1,11 +1,6 @@
 from typing import Optional
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
-from langchain_google_vertexai import ChatVertexAI
-
-from ..config import GEMINI_MODEL, GCP_LOCATION, GCP_PROJECT
-from ..retrieval import gcp_creds
 
 TEXPERT_SYSTEM_PROMPT = (
     "You are an AI assistant designed to generate LaTeX code and respond to user requests "
@@ -31,14 +26,22 @@ TEXPERT_SYSTEM_PROMPT = (
 # Packages that only work with XeLaTeX/LuaLaTeX — trigger automatic compiler switch
 XELATEX_PACKAGES = {"fontspec", "unicode-math", "polyglossia", "xltxtra", "xunicode"}
 
-_latex_llm = ChatVertexAI(
-    model=GEMINI_MODEL,
-    temperature=1.0,
-    max_output_tokens=8192,
-    credentials=gcp_creds,
-    project=GCP_PROJECT,
-    location=GCP_LOCATION,
-)
+
+def _get_latex_llm():
+    """Lazy-load the LaTeX LLM."""
+    from ..retrieval import gcp_creds, _HAS_GCP
+    if not _HAS_GCP or not gcp_creds:
+        return None
+    from langchain_google_vertexai import ChatVertexAI
+    from ..config import GEMINI_MODEL, GCP_LOCATION, GCP_PROJECT
+    return ChatVertexAI(
+        model=GEMINI_MODEL,
+        temperature=1.0,
+        max_output_tokens=8192,
+        credentials=gcp_creds,
+        project=GCP_PROJECT,
+        location=GCP_LOCATION,
+    )
 
 
 @tool
@@ -46,8 +49,14 @@ def latex_generator(description: str, existing_latex: str = "") -> str:
     """Generate LaTeX code for equations, full documents, or formatted content.
     Provide existing_latex when iteratively modifying a document.
     Returns raw LaTeX ready to compile."""
+    llm = _get_latex_llm()
+    if llm is None:
+        return "ERROR: LaTeX generation requires GCP credentials. Configure them in api/.env"
+
+    from langchain_core.messages import HumanMessage, SystemMessage
+
     user_msg = (existing_latex + "\n" + description) if existing_latex else description
-    response = _latex_llm.invoke([
+    response = llm.invoke([
         SystemMessage(content=TEXPERT_SYSTEM_PROMPT),
         HumanMessage(content=user_msg),
     ])
