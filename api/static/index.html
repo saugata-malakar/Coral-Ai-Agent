@@ -1081,6 +1081,135 @@
       box-shadow: none;
     }
 
+    /* ── Voice button ───────────────────────────────────────────────── */
+    .voice-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.15rem;
+      padding: 6px;
+      border-radius: 8px;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+    }
+
+    .voice-btn:hover {
+      color: var(--accent-teal);
+      background: var(--glow-teal);
+    }
+
+    .voice-btn.recording {
+      color: #ef4444;
+      background: rgba(239,68,68,0.12);
+      animation: voicePulse 1s ease-in-out infinite;
+    }
+
+    @keyframes voicePulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+      50%     { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+    }
+
+    /* ── AI Mode Selector ──────────────────────────────────────────── */
+    .mode-selector-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 4px;
+      margin-bottom: 10px;
+    }
+
+    .mode-selector-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .mode-pills {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .mode-pill:hover {
+      border-color: var(--accent-teal-dim);
+      color: var(--text-primary);
+      background: rgba(45,212,191,0.05);
+    }
+
+    .mode-pill.active {
+      border-color: var(--accent-teal);
+      background: linear-gradient(135deg, rgba(45,212,191,0.15) 0%, rgba(45,212,191,0.06) 100%);
+      color: var(--accent-teal);
+      box-shadow: 0 0 10px rgba(45,212,191,0.12);
+      font-weight: 600;
+    }
+
+    .mode-pill .mode-icon {
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+
+    .mode-pill.pro .mode-icon { color: #a78bfa; }
+    .mode-pill.promax .mode-icon { color: #f59e0b; }
+    .mode-pill.think .mode-icon { color: #60a5fa; }
+
+    .mode-pill.pro.active {
+      border-color: #a78bfa;
+      background: linear-gradient(135deg, rgba(167,139,250,0.15) 0%, rgba(167,139,250,0.06) 100%);
+      color: #a78bfa;
+      box-shadow: 0 0 10px rgba(167,139,250,0.12);
+    }
+
+    .mode-pill.promax.active {
+      border-color: #f59e0b;
+      background: linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(245,158,11,0.06) 100%);
+      color: #f59e0b;
+      box-shadow: 0 0 10px rgba(245,158,11,0.12);
+    }
+
+    .mode-pill.think.active {
+      border-color: #60a5fa;
+      background: linear-gradient(135deg, rgba(96,165,250,0.15) 0%, rgba(96,165,250,0.06) 100%);
+      color: #60a5fa;
+      box-shadow: 0 0 10px rgba(96,165,250,0.12);
+    }
+
+    .mode-description {
+      font-size: 0.66rem;
+      color: var(--text-muted);
+      padding: 0 4px;
+      margin-top: -4px;
+      margin-bottom: 8px;
+      font-style: italic;
+      transition: opacity 0.2s;
+    }
+
     /* ── Toast ──────────────────────────────────────────────────────── */
     #toast {
       position: fixed;
@@ -1219,12 +1348,31 @@
     </div>
 
     <div id="input-area">
+      <div class="mode-selector-row">
+        <span class="mode-selector-label">Mode:</span>
+        <div class="mode-pills">
+          <button class="mode-pill active" data-mode="standard" data-thinking="standard" onclick="setAiMode(this)">
+            <span class="mode-icon">⚡</span> Standard
+          </button>
+          <button class="mode-pill pro" data-mode="pro" data-thinking="deep" onclick="setAiMode(this)">
+            <span class="mode-icon">💎</span> Pro
+          </button>
+          <button class="mode-pill promax" data-mode="promax" data-thinking="comprehensive" onclick="setAiMode(this)">
+            <span class="mode-icon">🔥</span> Pro Max
+          </button>
+          <button class="mode-pill think" data-mode="think" data-thinking="critical" onclick="setAiMode(this)">
+            <span class="mode-icon">🧠</span> Think
+          </button>
+        </div>
+      </div>
+      <div id="mode-description" class="mode-description">Fast responses for quick questions</div>
       <div id="file-chips-row"></div>
       <div class="input-row">
         <button class="attach-btn" title="Attach PDF or image"
           onclick="document.getElementById('file-input').click()">📎</button>
         <textarea id="user-input" rows="1" placeholder="Ask Coral about coastal hydrodynamics…"
           onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="voice-btn" id="voice-btn" title="Voice input" onclick="toggleVoice()">🎙️</button>
         <button id="send-btn" onclick="sendMessage()" title="Send (Enter)">▶</button>
       </div>
     </div>
@@ -1238,8 +1386,101 @@
   let attachedFile    = null; // single File object
   let isLoading       = false;
   let currentSessionId = null;
+  let currentAiMode = 'standard';
+  let currentThinkingMode = 'standard';
+  let isRecording = false;
+  let recognition = null;
   // Map of sessionId → array of {role, html} stored for UI restoration
   const chatHistories = {};
+
+  const MODE_DESCRIPTIONS = {
+    standard: 'Fast responses for quick questions',
+    pro: 'Deep analysis with detailed step-by-step reasoning',
+    promax: 'Comprehensive multi-method verification & advanced computation',
+    think: 'Critical thinking with error analysis & cross-checking'
+  };
+
+  // ── AI Mode Selector ────────────────────────────────────────────────────────
+  function setAiMode(el) {
+    document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    currentAiMode = el.dataset.mode;
+    currentThinkingMode = el.dataset.thinking;
+    document.getElementById('mode-description').textContent = MODE_DESCRIPTIONS[currentAiMode];
+  }
+
+  // ── Voice Input (Web Speech API) ────────────────────────────────────────────
+  function initVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      document.getElementById('voice-btn').style.display = 'none';
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      const ta = document.getElementById('user-input');
+      let interim = '';
+      let final_ = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          final_ += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      if (final_) {
+        ta.value += final_ + ' ';
+        autoResize(ta);
+      }
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      const btn = document.getElementById('voice-btn');
+      btn.classList.remove('recording');
+      btn.innerHTML = '🎙️';
+      btn.title = 'Voice input';
+    };
+
+    recognition.onerror = (event) => {
+      console.warn('Speech recognition error:', event.error);
+      isRecording = false;
+      const btn = document.getElementById('voice-btn');
+      btn.classList.remove('recording');
+      btn.innerHTML = '🎙️';
+      if (event.error === 'not-allowed') {
+        showToast('Microphone access denied. Please allow microphone access.');
+      }
+    };
+  }
+
+  function toggleVoice() {
+    if (!recognition) {
+      showToast('Voice input not supported in this browser');
+      return;
+    }
+    const btn = document.getElementById('voice-btn');
+    if (isRecording) {
+      recognition.stop();
+      isRecording = false;
+      btn.classList.remove('recording');
+      btn.innerHTML = '🎙️';
+      btn.title = 'Voice input';
+    } else {
+      recognition.start();
+      isRecording = true;
+      btn.classList.add('recording');
+      btn.innerHTML = '⏹️';
+      btn.title = 'Stop recording';
+      showToast('Listening... Speak now');
+    }
+  }
+
+  initVoice();
 
   // ── Storage helpers ────────────────────────────────────────────────────────
   function saveHistoriesToStorage() {
@@ -1576,6 +1817,8 @@
         fd.append('message', text);
         fd.append('session_id', currentSessionId);
         fd.append('file', fileToSend);
+        fd.append('thinking_mode', currentThinkingMode);
+        fd.append('enable_web_search', currentAiMode === 'promax' ? 'true' : 'false');
         const res = await fetch('/chat-with-file', { method: 'POST', body: fd });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -1592,7 +1835,9 @@
           body: JSON.stringify({
             message: text,
             session_id: currentSessionId,
-            user_id: localStorage.getItem('user_email')
+            user_id: localStorage.getItem('user_email'),
+            thinking_mode: currentThinkingMode,
+            enable_web_search: currentAiMode === 'promax'
           }),
         });
         if (!res.ok) {
