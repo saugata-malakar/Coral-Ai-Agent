@@ -39,10 +39,19 @@ if _env_path.exists():
 
 # ── GCP credentials ───────────────────────────────────────────────────────────
 _sa_key_path = os.getenv("GCP_SA_KEY_PATH", "")
+_sa_key_json = os.getenv("GCP_SA_KEY_JSON", "")  # For Render: pass full JSON as env var
 SA_KEY_DICT = {}
 GCP_PROJECT = "coastal-ai"  # Fallback value
 
-if _sa_key_path:
+# Priority: GCP_SA_KEY_JSON env var > GCP_SA_KEY_PATH file
+if _sa_key_json:
+    try:
+        SA_KEY_DICT = json.loads(_sa_key_json)
+        GCP_PROJECT = SA_KEY_DICT.get("project_id", "coastal-ai")
+        print(f"[config] Loaded GCP credentials from GCP_SA_KEY_JSON env var (project: {GCP_PROJECT})")
+    except Exception as _e:
+        print(f"[config] Warning: Could not parse GCP_SA_KEY_JSON: {_e}")
+elif _sa_key_path:
     _api_dir = PROJECT_ROOT
     _sa_key_resolved = (_api_dir / _sa_key_path).resolve()
     if _sa_key_resolved.exists():
@@ -53,7 +62,6 @@ if _sa_key_path:
         except Exception as _e:
             print(f"[config] Warning: Could not load GCP credentials from {_sa_key_resolved}: {_e}")
     else:
-        # In container, use env var if available
         GCP_PROJECT = os.getenv("GCP_PROJECT", "coastal-ai")
 else:
     GCP_PROJECT = os.getenv("GCP_PROJECT", "coastal-ai")
